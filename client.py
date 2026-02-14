@@ -1,12 +1,8 @@
 import hashlib
-import logging
-from pickle import OBJ
 from threading import Thread
-from typing import Literal
 
 import requests  # type: ignore[import-untyped]
 
-import rich
 from requests.models import Response  # type: ignore[import-untyped]
 from textual import on
 from textual.app import ComposeResult, App
@@ -25,7 +21,7 @@ def sha256(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-# 1. 注册用户（RESTful POST /users）
+# 1. 注册用户（RESTful ）
 def register(username, plain_password) -> Response:
     try:
         url = f'{BASE_URL}/users'

@@ -93,7 +93,7 @@ def get_user(token:str):
     GET /api/v1/users/alice
     """
     if (token_map.get(token) is None):
-        return jsonify({'error': 'token 错误'}), 401 #TODO 错误码
+        return jsonify({'error': 'token 错误'}), 401
     else:
         username = token_map.get(token)
     conn = get_db()
@@ -119,13 +119,6 @@ def random_token() -> str:
 def create_session():
     """
     创建会话（登录）
-    ---
-    POST /api/v1/sessions
-    {
-        "username": "alice",
-        "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
-    }
-    成功时返回 200 和简单消息（实际生产应返回 token）
     """
     data = request.get_json()
     if not data:
