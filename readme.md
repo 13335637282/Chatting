@@ -46,7 +46,19 @@
   + [ ] 创建
 - [ ] 完善的api
 
-## api 文档
+## 如何安转
+1. clone 此项目: `git clone https://github.com/13335637282/Chatting.git`
+2. 将路径转移到 Chatting 文件夹下: `cd Chatting`
+3. 运行安装依赖: `python -m pip install requirements.txt`
+4. 运行 server.py 获得`PRIVATE_KEY.chatting` 和 `PUBLIC_KEY.chatting`文件
+5. 将 `PUBLIC_KEY.chatting` 移动到 `client.py` 运行目录下 (如果你的 client 要分发给其他人的话 请不要将 `PRIVATE_KEY.chatting` 给其他人，以免造成密码泄露)
+6. 修改 `client.py` 中的 BASE_URL 字段， 修改为你自己的服务器ip : `http://<your_server_ip>/api/v1`
+7. 运行 `client.py` 测试是否可以正常使用 (如果不行请先确认是否是程序bug，如果是 请提交issue，如果无法确定请参阅故障排查)
+
+## 故障排查
+*因项目还在开放阶段，暂时没有。*
+
+## 网络 API
 *注: 以下省略最前面的/api/<api_version>*  
 *当前 api_version 为 v1*  
   
@@ -102,6 +114,8 @@
 }
 ```
 
+## 协议
+本项目协议主题存储在 LICENSE 文件夹， 为 Apache License 2.0 协议。以文件内容为准
 
 ## Bug 预警
 所有操作均可能导致出现bug
