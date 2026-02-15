@@ -13,6 +13,8 @@ from rsa import PrivateKey
 
 from client import debug_print
 
+__license__ = """Apache License 2.0"""
+
 app = Flask(__name__)
 
 token_map:dict = {}

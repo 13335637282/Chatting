@@ -20,6 +20,8 @@ BASE_URL = 'http://127.0.0.1:5000/api/v1'
 logger = Logger("client/root","client.log","ZERO",mask_tokens=True)
 ph = PasswordHasher()
 
+__license__ = """Apache License 2.0"""
+
 def debug_print(*args:object):
     try:
         logger.debug(' '.join(str(arg) for arg in args))
@@ -234,4 +236,6 @@ if __name__ == '__main__':
         else:
             print("登录失败")
     main()
+
+
 

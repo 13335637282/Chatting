@@ -8,6 +8,9 @@ import inspect
 import threading
 from typing import Dict, Optional, Union, Pattern, Match, TextIO, Any, NoReturn
 
+__license__ = """Apache License 2.0"""
+
+
 class Logger:
     """
     文件日志记录器，支持自动模糊化 UUID 格式的令牌。
