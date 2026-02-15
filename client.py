@@ -1,9 +1,14 @@
+import base64
 import hashlib
+import os
 from threading import Thread
 
 import requests  # type: ignore[import-untyped]
+import rsa
 
+from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
+from rsa import PublicKey
 from textual import on
 from textual.app import ComposeResult, App
 from textual.widgets import Footer, Header, Button, Input, ListView, Label, ListItem
@@ -13,22 +18,36 @@ from logger import Logger  # type: ignore[attr-defined]
 
 BASE_URL = 'http://127.0.0.1:5000/api/v1'
 logger = Logger("client/root","client.log","ZERO",mask_tokens=True)
+ph = PasswordHasher()
 
 def debug_print(*args:object):
-    logger.debug(' '.join(str(arg) for arg in args))
+    try:
+        logger.debug(' '.join(str(arg) for arg in args))
+    except OSError:
+        pass
 
-def sha256(text):
-    return hashlib.sha256(text.encode()).hexdigest()
 
+def rsa_encrypt(bytes_: bytes) -> bytes:
+
+    with open("PUBLIC_KEY.chatting", mode='rb') as fread:
+        pub_key = PublicKey.load_pkcs1(fread.read())
+        fread.close()
+
+    cipher_bin = rsa.encrypt(bytes_, pub_key)
+    return cipher_bin
 
 # 1. 注册用户（RESTful ）
-def register(username, plain_password) -> Response:
+def register(username:str, plain_password:str) -> Response:
     try:
         url = f'{BASE_URL}/users'
+        debug_print("[注册] 创建请求体中")
         payload = {
             'username': username,
-            'password_hash': sha256(plain_password)
+            'password': base64.b64encode(
+                    rsa_encrypt(plain_password.encode("utf-8"))
+                ).decode("utf-8")
         }
+        debug_print(f"[注册] 请求中... 请求体: {payload}")
         resp :Response = requests.post(url, json=payload)
         debug_print(f'[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}')
         return resp
@@ -39,13 +58,17 @@ def register(username, plain_password) -> Response:
 
 
 # 2. 登录（RESTful POST /sessions）
-def login(username, plain_password) -> Response:
+def login(username:str, plain_password:str) -> Response:
     try:
+        debug_print("[登录] 创建请求体中...")
         url = f'{BASE_URL}/sessions'
         payload = {
             'username': username,
-            'password_hash': sha256(plain_password)
+            'password': base64.b64encode(
+                    rsa_encrypt(plain_password.encode("utf-8"))
+                ).decode("utf-8")
         }
+        debug_print(f"[登录] 请求中... Password:{payload}" )
         resp: Response = requests.post(url, json=payload)
         debug_print(f'[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}')
         return resp
@@ -116,13 +139,13 @@ if __name__ == '__main__':
                 self.query_one("#register").remove()
                 self.loggedin = True
                 self.token = r.json().get("token")
+                debug_print(f"返回 Token {self.token}")
                 self.exit()
-                self.refresh(layout=True,repaint=True,recompose=True)
-                self.compose_add_child()
 
             elif r.status_code != 200 and r.status_code != -1:
                 self.notify(message=str(r.json().get("error"))+"("+str(r.status_code)+")",severity="error",title="错误")
             else:
+                debug_print(f"服务器连接失败，返回值: {r.status_code} (应为-1)")
                 self.notify("链接服务器失败!",severity="error",title="错误")
             self.query_one("#register").disabled = False
 
@@ -186,6 +209,16 @@ if __name__ == '__main__':
             )
 
     def main():
+        if not os.path.exists("PUBLIC_KEY.chatting"):
+            logger.error("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
+            print("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
+            exit(-1)
+        try:
+            rsa_encrypt(b"test")
+        except:
+            logger.error("无法使用 rsa 功能请检查 PUBLIC_KEY.chatting 文件")
+            print("无法使用 rsa 功能请检查 PUBLIC_KEY.chatting 文件")
+            exit(-1)
         app = LoginApp()
         app.title = f"登录".title()
         app.run()

@@ -1,14 +1,23 @@
+import base64
 import logging
+import os
 import sqlite3
-import hashlib
 import uuid
+from pathlib import Path
 
+from argon2 import PasswordHasher
+import rsa
+from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from flask import Flask, request, jsonify, url_for
+from rsa import PrivateKey
+
+from client import debug_print
 
 app = Flask(__name__)
 
 token_map:dict = {}
 api_version = "v1"
+ph = PasswordHasher()
 
 logger = logging.getLogger("server/root")
 logger.setLevel(logging.DEBUG)
@@ -23,13 +32,37 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
+            password TEXT NOT NULL
         )
     ''')
     conn.commit()
     conn.close()
 
 init_db()
+
+def create_rsa_key():
+    logger.info("正在检测是否有公私钥中...")
+    if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists("PRIVATE_KEY.chatting"):
+        logger.info("未检测到有公钥和私钥，正在自动生成。")
+        public_key, private_key = rsa.newkeys(2048 * 2)
+        with open("PUBLIC_KEY.chatting", 'wb') as f:
+            f.write(public_key.save_pkcs1())
+            f.close()
+        with open("PRIVATE_KEY.chatting", 'wb') as f:
+            f.write(private_key.save_pkcs1())
+            f.close()
+
+        logger.info("生成完成。")
+        return
+    logger.info("检测到公私钥 √")
+
+def rsa_decrypt(bytes_:bytes):
+    with open("PRIVATE_KEY.chatting", mode='rb') as fread:
+        priv_key = PrivateKey.load_pkcs1(fread.read())
+        fread.close()
+
+    cipher_bin = rsa.decrypt(bytes_, priv_key)
+    return cipher_bin
 
 # ---------- 数据库连接辅助 ----------
 def get_db():
@@ -38,8 +71,8 @@ def get_db():
     return conn
 
 # ---------- 哈希工具 ----------
-def sha256(text: str) -> str:
-    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+def hash(text: str) -> str:
+    return ph.hash(text)
 
 # ========== RESTful 资源端点 ==========
 
@@ -48,28 +81,26 @@ def sha256(text: str) -> str:
 def create_user():
     """
     创建新用户（注册）
-    ---
-    POST /api/v1/users
-    {
-        "username": "alice",
-        "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
-    }
     """
     data = request.get_json()
     if not data:
         return jsonify({'error': '请求体必须为JSON'}), 400
 
-    username = data.get('username')
-    password_hash = data.get('password_hash')
+    try:
+        username = data.get('username')
+        password = rsa_decrypt(base64.b64decode(data.get('password'))).decode()
+    except:
+        return jsonify({"error": "服务器无法理解客户端的请求"}), 400
 
-    if not username or not password_hash:
-        return jsonify({'error': '用户名和密码哈希不能为空'}), 400
+    if not username or not password:
+        return jsonify({'error': '用户名和密码不能为空'}), 400
 
+    password = ph.hash(password).replace(" ","")
     conn = get_db()
     try:
         conn.execute(
-            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
-            (username, password_hash)
+            'INSERT INTO users (username, password) VALUES (?, ?)',
+            (username, password)
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -77,13 +108,7 @@ def create_user():
         return jsonify({'error': '用户名已存在'}), 409
     conn.close()
 
-    # 返回 201 Created，并附带新用户资源位置（可选）
-    response = jsonify({
-        'message': '用户创建成功'
-    })
-    response.status_code = 201
-    response.headers['Location'] = url_for('get_user', username=username, _external=True)
-    return response
+    return jsonify({'message':"用户创建成功"}), 201
 
 @app.route(f'/api/{api_version}/users/<token>', methods=['GET'])
 def get_user(token:str):
@@ -124,23 +149,38 @@ def create_session():
     if not data:
         return jsonify({'error': '请求体必须为JSON'}), 400
 
-    username = data.get('username')
-    password_hash = data.get('password_hash')
+    try:
+        username = data.get('username')
+        password = rsa_decrypt(base64.b64decode(data.get('password'))).decode()
+    except:
+        logger.error("服务器解析")
+        return jsonify({"error":"服务器无法理解客户端的请求，请确认客户端版本正确。"}), 400
 
-    if not username or not password_hash:
-        return jsonify({'error': '用户名和密码哈希不能为空'}), 400
+    if not username or not password:
+        return jsonify({'error': '用户名和密码不能为空'}), 400
+
 
     conn = get_db()
     user = conn.execute(
-        'SELECT password_hash FROM users WHERE username = ?',
+        'SELECT password FROM users WHERE username = ?',
         (username,)
     ).fetchone()
     conn.close()
 
-    if user and user['password_hash'] == password_hash:
+    if user:
+        try:
+            is_valid = ph.verify(user['password'], password)
+            if not is_valid:
+                raise VerificationError
+        except VerifyMismatchError :
+            return jsonify({'error': '用户名或密码错误'}), 401
+        except VerificationError:
+            return jsonify({'error': '用户名或密码错误'}), 401
+        except InvalidHashError:
+            return jsonify({'error': '不合法的Hash'}), 401
+
         token = random_token()
         token_map[token] = username
-        logger.debug(f"token_map: {str(token_map)}")
         # 登录成功，可在此生成 JWT 或 Session Token，示例中只返回消息
         return jsonify({
             'message': '登录成功',
@@ -170,4 +210,5 @@ def health():
     return jsonify({'status': 'ok'}), 200
 
 if __name__ == '__main__':
+    create_rsa_key()
     app.run(host='127.0.0.1', port=5000, debug=True)

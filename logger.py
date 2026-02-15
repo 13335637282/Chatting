@@ -162,13 +162,9 @@ class Logger:
     def _write(self, log_entry: str) -> None:
         """线程安全地写入日志文件"""
         with self.lock:
-            try:
-                if self.file_handler:
-                    self.file_handler.write(log_entry + '\n')
-                    self.file_handler.flush()
-            except Exception:
-                pass  # 写入失败时静默忽略
-
+            if self.file_handler:
+                self.file_handler.write(log_entry + '\n')
+                self.file_handler.flush()
     # 便捷方法
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         self.log(10, msg, *args, **kwargs)
