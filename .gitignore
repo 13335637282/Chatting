@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+env/
+venv/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+eggs/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# IDE-specific files
+idea/
+vscode/
+.idea/
+.vscode/
+
+
+# Unit test / coverage reports
+tox/
+nox/
+coverage
+pytest_cache/
+
+# Jupyter Notebook checkpoints
+ipynb_checkpoints/
+
+# Django/Flask-specific files
+local_settings.py
+db.sqlite3
+
+# OS-generated files
+DS_Store
+Thumbs.db
+
+#chatting file
+*.chatting
+*.db
+test.py
