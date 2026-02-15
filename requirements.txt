@@ -1,0 +1,6 @@
+requests==2.32.5
+rsa==4.9.1
+rich==14.3.2
+textual==7.5.0
+Flask==3.1.2
+argon2-cffi
