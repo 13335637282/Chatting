@@ -154,7 +154,6 @@ Chatting 是一个基于 Textual TUI 框架开发的轻量级聊天客户端，�
 cd Chatting
 ```
 - 安装 isort, black 工具
-- 
 ```bash
 pip install isort
 ```
