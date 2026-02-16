@@ -49,7 +49,7 @@
 ## 如何安转
 1. clone 此项目: `git clone https://github.com/13335637282/Chatting.git`
 2. 将路径转移到 Chatting 文件夹下: `cd Chatting`
-3. 运行安装依赖: `python -m pip install requirements.txt`
+3. 运行安装依赖: `python -m pip install -r requirements.txt`
 4. 运行 server.py 获得`PRIVATE_KEY.chatting` 和 `PUBLIC_KEY.chatting`文件
 5. 将 `PUBLIC_KEY.chatting` 移动到 `client.py` 运行目录下 (如果你的 client 要分发给其他人的话 请不要将 `PRIVATE_KEY.chatting` 给其他人，以免造成密码泄露)
 6. 修改 `client.py` 中的 BASE_URL 字段， 修改为你自己的服务器ip : `http://<your_server_ip>/api/v1`
