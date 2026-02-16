@@ -1,22 +1,20 @@
 import base64
-import hashlib
 import os
-from threading import Thread
+import threading
 
 import requests  # type: ignore[import-untyped]
 import rsa
-
 from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 from textual import on
-from textual.app import ComposeResult, App
-from textual.widgets import Footer, Header, Button, Input, ListView, Label, ListItem
+from textual.app import App, ComposeResult
 from textual.containers import Container
+from textual.widgets import Button, Footer, Header, Input, Label
 
-from logger import Logger  # type: ignore[attr-defined]
+from logger import Logger
 
-BASE_URL = 'http://127.0.0.1:5000/api/v1'
+BASE_URL = "http://127.0.0.1:5000/api/v1"
 logger = Logger("client/root", "client.log", "ZERO", mask_tokens=True)
 ph = PasswordHasher()
 
@@ -30,7 +28,7 @@ def debug_print(*args: object):
     如果文件写入被系统中断 (OSError) 会予以静默处理
     """
     try:
-        logger.debug(' '.join(str(arg) for arg in args))
+        logger.debug(" ".join(str(arg) for arg in args))
     except OSError:
         pass
 
@@ -40,10 +38,8 @@ def rsa_encrypt(bytes_: bytes) -> bytes:
     传入一个 bytes 对象输出一个使用 RSA公钥加密 后的 bytes 对象
     注意输出的 bytes 对象需使用 base64 编码后再和服务器端传输
     """
-    with open("PUBLIC_KEY.chatting", mode='rb') as fread:
+    with open("PUBLIC_KEY.chatting", "rb") as fread:
         pub_key = PublicKey.load_pkcs1(fread.read())
-        fread.close()
-
     cipher_bin = rsa.encrypt(bytes_, pub_key)
     return cipher_bin
 
@@ -56,17 +52,19 @@ def register(username: str, plain_password: str) -> Response:
     注意：**如果向服务器请求失败，会返回一个状态码为-1的Response对象**
     """
     try:
-        url = f'{BASE_URL}/users'
+        url = f"{BASE_URL}/users"
         debug_print("[注册] 创建请求体中")
         payload = {
-            'username': username,
-            'password': base64.b64encode(
+            "username": username,
+            "password": base64.b64encode(
                 rsa_encrypt(plain_password.encode("utf-8"))
-            ).decode("utf-8")
+            ).decode("utf-8"),
         }
         debug_print(f"[注册] 请求中... 请求体: {payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(f'[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}')
+        debug_print(
+            f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
+        )
         return resp
     except Exception:
         rep: Response = Response()
@@ -74,7 +72,6 @@ def register(username: str, plain_password: str) -> Response:
         return rep
 
 
-# 2. 登录（RESTful POST /sessions）
 def login(username: str, plain_password: str) -> Response:
     """
     传入 用户名 和 原密码 (未经处理的密码) ，函数会向服务器端发送 POST /sessions，
@@ -83,16 +80,18 @@ def login(username: str, plain_password: str) -> Response:
     """
     try:
         debug_print("[登录] 创建请求体中...")
-        url = f'{BASE_URL}/sessions'
+        url = f"{BASE_URL}/sessions"
         payload = {
-            'username': username,
-            'password': base64.b64encode(
+            "username": username,
+            "password": base64.b64encode(
                 rsa_encrypt(plain_password.encode("utf-8"))
-            ).decode("utf-8")
+            ).decode("utf-8"),
         }
         debug_print(f"[登录] 请求中... Password:{payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(f'[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}')
+        debug_print(
+            f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
+        )
         return resp
     except Exception:
         rep: Response = Response()
@@ -100,16 +99,15 @@ def login(username: str, plain_password: str) -> Response:
         return rep
 
 
-# 3. 获取用户信息（RESTful GET /users/<token>）
 def get_user(token) -> Response:
     """
     此函数还在开发中...
     暂无文档
     """
     try:
-        url = f'{BASE_URL}/users/{token}'
+        url = f"{BASE_URL}/users/{token}"
         resp: Response = requests.get(url)
-        debug_print(f'[查询] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}')
+        debug_print(f"[查询] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -123,12 +121,10 @@ def logout(token) -> Response:
     注意： 如果请求失败会返回一个状态码为 -1 的 Response 对象。
     """
     try:
-        url = f'{BASE_URL}/sessions'
-        payload = {
-            'token': token
-        }
+        url = f"{BASE_URL}/sessions"
+        payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
-        debug_print(f'[登出] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}')
+        debug_print(f"[登出] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -136,9 +132,8 @@ def logout(token) -> Response:
         return rep
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Loading...")
-
 
     class LoginApp(App):
         CSS_PATH = "login.css"
@@ -158,12 +153,13 @@ if __name__ == '__main__':
             with Container(id="main_container"):
                 yield Input("", id="user_id", placeholder="用户名/ID")
                 yield Input("", id="user_password", placeholder="密码", password=True)
-                yield Button(f"登录/注册", id="register", variant="primary")
+                yield Button("登录/注册", id="register", variant="primary")
                 yield Footer()
 
         def login(self):
-            r: Response = login(username=self.user_id,
-                                plain_password=self.password)  # type: ignore[annotation-unchecked]
+            r: Response = login(  # type: ignore[annotation-unchecked]
+                username=self.user_id, plain_password=self.password
+            )
             if r.status_code == 200:
                 self.clear_notifications()
                 self.notify("登录成功!")
@@ -174,23 +170,28 @@ if __name__ == '__main__':
                 self.token = r.json().get("token")
                 debug_print(f"返回 Token {self.token}")
                 self.exit()
-
             elif r.status_code != 200 and r.status_code != -1:
-                self.notify(message=str(r.json().get("error")) + "(" + str(r.status_code) + ")", severity="error",
-                            title="错误")
+                self.notify(
+                    message=str(r.json().get("error")) + "(" + str(r.status_code) + ")",
+                    severity="error",
+                    title="错误",
+                )
             else:
                 debug_print(f"服务器连接失败，返回值: {r.status_code} (应为-1)")
                 self.notify("链接服务器失败!", severity="error", title="错误")
             self.query_one("#register").disabled = False
 
         def register(self):
-            r: Response = register(username=self.user_id,
-                                   plain_password=self.password)  # type: ignore[annotation-unchecked]
+            r: Response = register(  # type: ignore[annotation-unchecked]
+                username=self.user_id, plain_password=self.password
+            )
             if r.status_code == 201:
                 self.notify("注册成功! 正在登录中...")
                 self.login()
             elif r.status_code != 200 and r.status_code != 409 and r.status_code != -1:
-                self.notify(message=str(r.json().get("error")), severity="error", title="错误")
+                self.notify(
+                    message=str(r.json().get("error")), severity="error", title="错误"
+                )
             elif r.status_code == 409:
                 self.login()
             else:
@@ -200,7 +201,7 @@ if __name__ == '__main__':
         @on(Button.Pressed, "#register")
         def register_pressed(self) -> None:
             self.query_one("#register").disabled = True
-            Thread(target=self.register, daemon=True).start()
+            threading.Thread(target=self.register, daemon=True).start()
 
         def action_toggle_dark(self) -> None:
             """An action to toggle dark mode."""
@@ -215,7 +216,6 @@ if __name__ == '__main__':
         @on(Input.Changed, "#user_password")
         def changed_user_password(self, event: Input.Changed) -> None:
             self.password = event.value
-
 
     class ChattingApp(App):
         CSS_PATH = "login.css"
@@ -243,20 +243,21 @@ if __name__ == '__main__':
                 "textual-dark" if self.theme == "textual-light" else "textual-light"
             )
 
-
     def main():
         if not os.path.exists("PUBLIC_KEY.chatting"):
-            logger.error("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
+            logger.error(
+                "缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。"
+            )
             print("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
             exit(-1)
         try:
             rsa_encrypt(b"test")
-        except:
+        except Exception:
             logger.error("无法使用 rsa 功能请检查 PUBLIC_KEY.chatting 文件")
             print("无法使用 rsa 功能请检查 PUBLIC_KEY.chatting 文件")
             exit(-1)
         app = LoginApp()
-        app.title = f"登录".title()
+        app.title = "登录".title()
         app.run()
 
         if app.loggedin and app.token is not None:
@@ -266,9 +267,7 @@ if __name__ == '__main__':
             chatting.password = app.password
             chatting.token = app.token
             chatting.run()
-
         else:
             print("登录失败")
-
 
     main()

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import inspect
 import os
 import re
-import time
-import inspect
 import threading
-from typing import Dict, Optional, Union, Pattern, Match, TextIO, Any, NoReturn
+import time
+from typing import Any, Dict, Match, NoReturn, Optional, Pattern, TextIO, Union
 
 __license__ = """Apache License 2.0"""
 
@@ -17,27 +17,28 @@ class Logger:
     日志仅写入文件，控制台无输出。
     日志格式：'[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s'
     """
+
     _level_names: Dict[str, int] = {
-        'ZERO': 0,
-        'DEBUG': 10,
-        'INFO': 20,
-        'WARNING': 30,
-        'ERROR': 40,
-        'CRITICAL': 50
+        "ZERO": 0,
+        "DEBUG": 10,
+        "INFO": 20,
+        "WARNING": 30,
+        "ERROR": 40,
+        "CRITICAL": 50,
     }
 
     # UUID 正则表达式：8-4-4-4-12 的十六进制数字
     _uuid_pattern: Pattern[str] = re.compile(
-        r'[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
+        r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
     )
 
     def __init__(
         self,
         name: str,
         logfile: str,
-        level: Union[str, int] = 'INFO',
+        level: Union[str, int] = "INFO",
         fmt: Optional[str] = None,
-        mask_tokens: bool = False
+        mask_tokens: bool = False,
     ) -> None:
         """
         初始化日志器
@@ -50,7 +51,10 @@ class Logger:
         self.name: str = name
         self.logfile: str = logfile
         self.level: int = self._get_level_int(level)
-        self.format: str = fmt or '[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s'
+        self.format: str = (
+            fmt
+            or "[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s"
+        )
         self.mask_tokens: bool = mask_tokens
         self.lock: threading.Lock = threading.Lock()
         self.file_handler: Optional[TextIO] = None
@@ -64,7 +68,7 @@ class Logger:
         for name, val in self._level_names.items():
             if val == level:
                 return name
-        return 'INFO'
+        return "INFO"
 
     def setLevel(self, level: Union[str, int]) -> None:
         """设置日志级别"""
@@ -75,11 +79,11 @@ class Logger:
         dirname: str = os.path.dirname(self.logfile)
         if dirname and not os.path.exists(dirname):
             os.makedirs(dirname)
-        self.file_handler = open(self.logfile, 'a', encoding='utf-8')
+        self.file_handler = open(self.logfile, "a", encoding="utf-8")
 
     def _close_file(self) -> None:
         """关闭日志文件"""
-        if hasattr(self, 'file_handler') and self.file_handler:
+        if hasattr(self, "file_handler") and self.file_handler:
             self.file_handler.close()
             self.file_handler = None
 
@@ -90,7 +94,7 @@ class Logger:
         uuid: str = match.group(0)
         # 确保长度足够（标准 UUID 长度为 36）
         if len(uuid) == 36:
-            return uuid[:4] + '****-****-****-****' + uuid[-4:]
+            return uuid[:4] + "****-****-****-****" + uuid[-4:]
         return uuid  # 如果不匹配长度，原样返回（实际上不会发生）
 
     def _mask_sensitive(self, message: Any) -> str:
@@ -122,15 +126,15 @@ class Logger:
         finally:
             del frame
 
-        asctime: str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        asctime: str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         record: Dict[str, Union[str, int]] = {
-            'asctime': asctime,
-            'name': self.name,
-            'levelname': levelname,
-            'filename': filename,
-            'funcName': funcname,
-            'lineno': lineno,
-            'message': msg
+            "asctime": asctime,
+            "name": self.name,
+            "levelname": levelname,
+            "filename": filename,
+            "funcName": funcname,
+            "lineno": lineno,
+            "message": msg,
         }
         return self.format % record
 
@@ -166,8 +170,9 @@ class Logger:
         """线程安全地写入日志文件"""
         with self.lock:
             if self.file_handler:
-                self.file_handler.write(log_entry + '\n')
+                self.file_handler.write(log_entry + "\n")
                 self.file_handler.flush()
+
     # 便捷方法
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         self.log(10, msg, *args, **kwargs)
@@ -191,9 +196,10 @@ class Logger:
         """
         记录异常信息，通常在 except 块中调用
         """
-        exc_info = kwargs.get('exc_info', True)
+        exc_info = kwargs.get("exc_info", True)
         if exc_info:
             import traceback
+
             tb: str = traceback.format_exc()
             # 将异常栈附加到消息中
             msg = f"{msg}\n{tb}"
@@ -204,22 +210,26 @@ class Logger:
 
 
 # 使用示例（正确调用方式）
-if __name__ == '__main__':
-    log = Logger('myapp', 'test.log', level='DEBUG', mask_tokens=True)
+if __name__ == "__main__":
+    log = Logger("myapp", "test.log", level="DEBUG", mask_tokens=True)
 
     # 正确的调用：第一个参数是字符串，后续参数用于 % 格式化
-    token = '288512b1-6526-413e-90fe-1af03e544826'
-    log.debug('访问令牌: %s', token)   # 正确
+    token = "288512b1-6526-413e-90fe-1af03e544826"
+    log.debug("访问令牌: %s", token)  # 正确
 
     # 即使错误地传入元组，也能正常工作（自动转为字符串）
-    log.debug(("[注册] test -> 状态 200, 响应: %s", token))  # 仍会输出一个元组的字符串表示，但其中的 token 会被模糊化
+    log.debug(
+        ("[注册] test -> 状态 200, 响应: %s", token)
+    )  # 仍会输出一个元组的字符串表示，但其中的 token 会被模糊化
     # 更常见的错误：多了一层括号
-    log.debug(("登录令牌: %s", token))  # 相当于传入了元组作为第一个参数，args 为空，我们会将其转为字符串并模糊化
+    log.debug(
+        ("登录令牌: %s", token)
+    )  # 相当于传入了元组作为第一个参数，args 为空，我们会将其转为字符串并模糊化
 
     # 异常信息
     try:
         raise ValueError(f"无效 token: {token}")
     except Exception:
-        log.exception('捕获到异常')
+        log.exception("捕获到异常")
 
-    print('日志已写入 test.log，UUID 已被模糊化，请查看。')
+    print("日志已写入 test.log，UUID 已被模糊化，请查看。")
