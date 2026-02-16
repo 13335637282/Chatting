@@ -1,14 +1,15 @@
 import base64
+import json
 import logging
 import os
 import sqlite3
 import uuid
-import json
 from datetime import datetime
 
 import rsa
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from argon2.exceptions import (InvalidHashError, VerificationError,
+                               VerifyMismatchError)
 from flask import Flask, jsonify, request
 from rsa import PrivateKey
 
@@ -95,7 +96,7 @@ def create_rsa_key() -> None:
     """
     logger.info("正在检测是否有公私钥中...")
     if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists(
-            "PRIVATE_KEY.chatting"
+        "PRIVATE_KEY.chatting"
     ):
         logger.info("未检测到有公钥和私钥，正在自动生成。")
         public_key, private_key = rsa.newkeys(2048 * 2)
@@ -160,7 +161,7 @@ def verify_token(token: str) -> tuple:
     conn.close()
 
     if user:
-        return True, username, user['id']
+        return True, username, user["id"]
     else:
         return False, None, None
 
@@ -172,7 +173,7 @@ def get_user_id_by_username(username: str) -> int:
         "SELECT id FROM users WHERE username = ?", (username,)
     ).fetchone()
     conn.close()
-    return user['id'] if user else None
+    return user["id"] if user else None
 
 
 def get_username_by_id(user_id: int) -> str:
@@ -182,7 +183,7 @@ def get_username_by_id(user_id: int) -> str:
         "SELECT username FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     conn.close()
-    return user['username'] if user else None
+    return user["username"] if user else None
 
 
 @app.route(f"/api/{api_version}/users", methods=["POST"])
@@ -347,7 +348,7 @@ def send_friend_request():
     conn = get_friend_db()
     existing_friend = conn.execute(
         "SELECT id FROM friends WHERE user_id = ? AND friend_id = ?",
-        (user_id, friend_id)
+        (user_id, friend_id),
     ).fetchone()
     if existing_friend:
         conn.close()
@@ -358,20 +359,20 @@ def send_friend_request():
     existing_request = conn_requests.execute(
         """SELECT id, status FROM friend_requests 
            WHERE from_user_id = ? AND to_user_id = ?""",
-        (user_id, friend_id)
+        (user_id, friend_id),
     ).fetchone()
 
     if existing_request:
-        if existing_request['status'] == 'pending':
+        if existing_request["status"] == "pending":
             conn_requests.close()
             return jsonify({"error": "已发送过好友请求，请等待对方处理"}), 409
-        elif existing_request['status'] == 'rejected':
+        elif existing_request["status"] == "rejected":
             # 如果之前被拒绝，可以重新发送
             conn_requests.execute(
                 """UPDATE friend_requests 
                    SET status = 'pending', message = ?, updated_at = CURRENT_TIMESTAMP
                    WHERE id = ?""",
-                (message, existing_request['id'])
+                (message, existing_request["id"]),
             )
             conn_requests.commit()
             conn_requests.close()
@@ -382,7 +383,7 @@ def send_friend_request():
         conn_requests.execute(
             """INSERT INTO friend_requests (from_user_id, to_user_id, message)
                VALUES (?, ?, ?)""",
-            (user_id, friend_id, message)
+            (user_id, friend_id, message),
         )
         conn_requests.commit()
     except sqlite3.IntegrityError:
@@ -395,10 +396,6 @@ def send_friend_request():
 
 @app.route(f"/api/{api_version}/friends/requests/incoming", methods=["GET"])
 def get_incoming_requests():
-    """
-    获取收到的好友请求列表
-    API GET /friends/requests/incoming?token=<token>
-    """
     token = request.args.get("token")
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
@@ -407,37 +404,39 @@ def get_incoming_requests():
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
-    conn = get_friend_requests_db()
-    requests = conn.execute(
-        """SELECT fr.id, fr.from_user_id, fr.message, fr.status, fr.created_at,
-                  u.username as from_username
-           FROM friend_requests fr
-           JOIN users u ON fr.from_user_id = u.id
-           WHERE fr.to_user_id = ? AND fr.status = 'pending'
-           ORDER BY fr.created_at DESC""",
+    # 从 friend_requests.db 获取待处理的请求列表
+    conn_req = get_friend_requests_db()
+    requests = conn_req.execute(
+        """SELECT id, from_user_id, message, status, created_at
+           FROM friend_requests
+           WHERE to_user_id = ? AND status = 'pending'
+           ORDER BY created_at DESC""",
         (user_id,)
     ).fetchall()
-    conn.close()
+    conn_req.close()
 
+    # 从 login.db 获取每个请求发送者的用户名
     result = []
+    conn_login = get_login_db()
     for req in requests:
-        result.append({
-            "request_id": req['id'],
-            "from_user_id": req['from_user_id'],
-            "from_username": req['from_username'],
-            "message": req['message'],
-            "created_at": req['created_at']
-        })
+        from_user = conn_login.execute(
+            "SELECT username FROM users WHERE id = ?", (req["from_user_id"],)
+        ).fetchone()
+        if from_user:
+            result.append({
+                "request_id": req["id"],
+                "from_user_id": req["from_user_id"],
+                "from_username": from_user["username"],
+                "message": req["message"],
+                "created_at": req["created_at"]
+            })
+    conn_login.close()
 
     return jsonify({"requests": result}), 200
 
 
 @app.route(f"/api/{api_version}/friends/requests/outgoing", methods=["GET"])
 def get_outgoing_requests():
-    """
-    获取发出的好友请求列表
-    API GET /friends/requests/outgoing?token=<token>
-    """
     token = request.args.get("token")
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
@@ -446,33 +445,40 @@ def get_outgoing_requests():
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
-    conn = get_friend_requests_db()
-    requests = conn.execute(
-        """SELECT fr.id, fr.to_user_id, fr.message, fr.status, fr.created_at,
-                  u.username as to_username
-           FROM friend_requests fr
-           JOIN users u ON fr.to_user_id = u.id
-           WHERE fr.from_user_id = ?
-           ORDER BY fr.created_at DESC""",
+    # 从 friend_requests.db 获取发出的请求列表
+    conn_req = get_friend_requests_db()
+    requests = conn_req.execute(
+        """SELECT id, to_user_id, message, status, created_at
+           FROM friend_requests
+           WHERE from_user_id = ?
+           ORDER BY created_at DESC""",
         (user_id,)
     ).fetchall()
-    conn.close()
+    conn_req.close()
 
+    # 从 login.db 获取每个接收者的用户名
     result = []
+    conn_login = get_login_db()
     for req in requests:
-        result.append({
-            "request_id": req['id'],
-            "to_user_id": req['to_user_id'],
-            "to_username": req['to_username'],
-            "message": req['message'],
-            "status": req['status'],
-            "created_at": req['created_at']
-        })
+        to_user = conn_login.execute(
+            "SELECT username FROM users WHERE id = ?", (req["to_user_id"],)
+        ).fetchone()
+        if to_user:
+            result.append({
+                "request_id": req["id"],
+                "to_user_id": req["to_user_id"],
+                "to_username": to_user["username"],
+                "message": req["message"],
+                "status": req["status"],
+                "created_at": req["created_at"]
+            })
+    conn_login.close()
 
     return jsonify({"requests": result}), 200
 
-
-@app.route(f"/api/{api_version}/friends/requests/<int:request_id>/accept", methods=["POST"])
+@app.route(
+    f"/api/{api_version}/friends/requests/<int:request_id>/accept", methods=["POST"]
+)
 def accept_friend_request(request_id):
     """
     接受好友请求
@@ -497,7 +503,7 @@ def accept_friend_request(request_id):
     conn_requests = get_friend_requests_db()
     friend_request = conn_requests.execute(
         "SELECT * FROM friend_requests WHERE id = ? AND status = 'pending'",
-        (request_id,)
+        (request_id,),
     ).fetchone()
 
     if not friend_request:
@@ -505,11 +511,11 @@ def accept_friend_request(request_id):
         return jsonify({"error": "好友请求不存在或已被处理"}), 404
 
     # 验证当前用户是请求的接收者
-    if friend_request['to_user_id'] != user_id:
+    if friend_request["to_user_id"] != user_id:
         conn_requests.close()
         return jsonify({"error": "无权操作此好友请求"}), 403
 
-    from_user_id = friend_request['from_user_id']
+    from_user_id = friend_request["from_user_id"]
 
     # 开始事务处理
     try:
@@ -518,7 +524,7 @@ def accept_friend_request(request_id):
             """UPDATE friend_requests 
                SET status = 'accepted', updated_at = CURRENT_TIMESTAMP
                WHERE id = ?""",
-            (request_id,)
+            (request_id,),
         )
         conn_requests.commit()
 
@@ -528,13 +534,13 @@ def accept_friend_request(request_id):
         # 添加 A -> B 的关系
         conn_friends.execute(
             "INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)",
-            (user_id, from_user_id)
+            (user_id, from_user_id),
         )
 
         # 添加 B -> A 的关系
         conn_friends.execute(
             "INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)",
-            (from_user_id, user_id)
+            (from_user_id, user_id),
         )
 
         conn_friends.commit()
@@ -551,7 +557,9 @@ def accept_friend_request(request_id):
     return jsonify({"message": "已接受好友请求"}), 200
 
 
-@app.route(f"/api/{api_version}/friends/requests/<int:request_id>/reject", methods=["POST"])
+@app.route(
+    f"/api/{api_version}/friends/requests/<int:request_id>/reject", methods=["POST"]
+)
 def reject_friend_request(request_id):
     """
     拒绝好友请求
@@ -575,14 +583,14 @@ def reject_friend_request(request_id):
     conn_requests = get_friend_requests_db()
     friend_request = conn_requests.execute(
         "SELECT * FROM friend_requests WHERE id = ? AND status = 'pending'",
-        (request_id,)
+        (request_id,),
     ).fetchone()
 
     if not friend_request:
         conn_requests.close()
         return jsonify({"error": "好友请求不存在或已被处理"}), 404
 
-    if friend_request['to_user_id'] != user_id:
+    if friend_request["to_user_id"] != user_id:
         conn_requests.close()
         return jsonify({"error": "无权操作此好友请求"}), 403
 
@@ -590,7 +598,7 @@ def reject_friend_request(request_id):
         """UPDATE friend_requests 
            SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
            WHERE id = ?""",
-        (request_id,)
+        (request_id,),
     )
     conn_requests.commit()
     conn_requests.close()
@@ -600,10 +608,6 @@ def reject_friend_request(request_id):
 
 @app.route(f"/api/{api_version}/friends", methods=["GET"])
 def get_friends_list():
-    """
-    获取好友列表
-    API GET /friends?token=<token>
-    """
     token = request.args.get("token")
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
@@ -612,27 +616,31 @@ def get_friends_list():
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
-    conn = get_friend_db()
-    friends = conn.execute(
-        """SELECT f.friend_id, u.username, f.created_at
-           FROM friends f
-           JOIN users u ON f.friend_id = u.id
-           WHERE f.user_id = ?
-           ORDER BY u.username""",
+    # 从 friends.db 获取好友ID列表
+    conn_friend = get_friend_db()
+    friend_rows = conn_friend.execute(
+        "SELECT friend_id, created_at FROM friends WHERE user_id = ?",
         (user_id,)
     ).fetchall()
-    conn.close()
+    conn_friend.close()
 
+    # 从 login.db 获取每个好友的用户名
     result = []
-    for friend in friends:
-        result.append({
-            "user_id": friend['friend_id'],
-            "username": friend['username'],
-            "created_at": friend['created_at']
-        })
+    conn_login = get_login_db()
+    for row in friend_rows:
+        friend_id = row["friend_id"]
+        user = conn_login.execute(
+            "SELECT username FROM users WHERE id = ?", (friend_id,)
+        ).fetchone()
+        if user:
+            result.append({
+                "user_id": friend_id,
+                "username": user["username"],
+                "created_at": row["created_at"]
+            })
+    conn_login.close()
 
     return jsonify({"friends": result}), 200
-
 
 @app.route(f"/api/{api_version}/friends/<int:friend_id>", methods=["DELETE"])
 def remove_friend(friend_id):
@@ -659,7 +667,7 @@ def remove_friend(friend_id):
     # 删除双向好友关系
     conn.execute(
         "DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
-        (user_id, friend_id, friend_id, user_id)
+        (user_id, friend_id, friend_id, user_id),
     )
     conn.commit()
     conn.close()

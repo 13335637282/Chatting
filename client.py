@@ -62,9 +62,7 @@ def register(username: str, plain_password: str) -> Response:
         }
         debug_print(f"[注册] 请求中... 请求体: {payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(
-            f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
-        )
+        debug_print(f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -89,9 +87,7 @@ def login(username: str, plain_password: str) -> Response:
         }
         debug_print(f"[登录] 请求中... Password:{payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(
-            f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
-        )
+        debug_print(f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -131,9 +127,132 @@ def logout(token) -> Response:
         rep.status_code = -1
         return rep
 
+def send_friend_request(token: str, friend_username: str, message: str = "") -> Response:
+    """
+    发送好友请求
+    API POST /friends/requests
+    """
+    try:
+        url = f"{BASE_URL}/friends/requests"
+        payload = {
+            "token": token,
+            "friend_username": friend_username,
+            "message": message
+        }
+        debug_print(f"[发送好友请求] 请求中... 好友: {friend_username}")
+        resp: Response = requests.post(url, json=payload)
+        debug_print(f"[发送好友请求] -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def get_incoming_requests(token: str) -> Response:
+    """
+    获取收到的好友请求
+    API GET /friends/requests/incoming?token=<token>
+    """
+    try:
+        url = f"{BASE_URL}/friends/requests/incoming"
+        params = {"token": token}
+        resp: Response = requests.get(url, params=params)
+        debug_print(f"[获取收到的请求] -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def get_outgoing_requests(token: str) -> Response:
+    """
+    获取发出的好友请求
+    API GET /friends/requests/outgoing?token=<token>
+    """
+    try:
+        url = f"{BASE_URL}/friends/requests/outgoing"
+        params = {"token": token}
+        resp: Response = requests.get(url, params=params)
+        debug_print(f"[获取发出的请求] -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def accept_friend_request(token: str, request_id: int) -> Response:
+    """
+    接受好友请求
+    API POST /friends/requests/<request_id>/accept
+    """
+    try:
+        url = f"{BASE_URL}/friends/requests/{request_id}/accept"
+        payload = {"token": token}
+        resp: Response = requests.post(url, json=payload)
+        debug_print(f"[接受好友请求] {request_id} -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def reject_friend_request(token: str, request_id: int) -> Response:
+    """
+    拒绝好友请求
+    API POST /friends/requests/<request_id>/reject
+    """
+    try:
+        url = f"{BASE_URL}/friends/requests/{request_id}/reject"
+        payload = {"token": token}
+        resp: Response = requests.post(url, json=payload)
+        debug_print(f"[拒绝好友请求] {request_id} -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def get_friends_list(token: str) -> Response:
+    """
+    获取好友列表
+    API GET /friends?token=<token>
+    """
+    try:
+        url = f"{BASE_URL}/friends"
+        params = {"token": token}
+        resp: Response = requests.get(url, params=params)
+        debug_print(f"[获取好友列表] -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def remove_friend(token: str, friend_id: int) -> Response:
+    """
+    删除好友
+    API DELETE /friends/<friend_id>
+    """
+    try:
+        url = f"{BASE_URL}/friends/{friend_id}"
+        payload = {"token": token}
+        resp: Response = requests.delete(url, json=payload)
+        debug_print(f"[删除好友] {friend_id} -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
 
 if __name__ == "__main__":
     print("Loading...")
+
 
     class LoginApp(App):
         CSS_PATH = "login.css"
@@ -217,6 +336,7 @@ if __name__ == "__main__":
         def changed_user_password(self, event: Input.Changed) -> None:
             self.password = event.value
 
+
     class ChattingApp(App):
         CSS_PATH = "login.css"
         ENABLE_COMMAND_PALETTE = False  # Do not need the command palette
@@ -243,11 +363,10 @@ if __name__ == "__main__":
                 "textual-dark" if self.theme == "textual-light" else "textual-light"
             )
 
+
     def main():
         if not os.path.exists("PUBLIC_KEY.chatting"):
-            logger.error(
-                "缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。"
-            )
+            logger.error("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
             print("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
             exit(-1)
         try:
@@ -269,5 +388,6 @@ if __name__ == "__main__":
             chatting.run()
         else:
             print("登录失败")
+
 
     main()
