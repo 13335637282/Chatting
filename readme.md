@@ -1,121 +1,155 @@
-# Chatting 项目说明
-## 基础说明
-- 本项目基于 textual  TUI 框架开发  
-- 本项目依赖库见下表  
 
-| Server端     | Client端   |
-|-------------|-----------|
-| logging     | threading |
-| sqlite3     | requests  |
-| hashlib     | textual   |
-| uuid        | rich      |
-| flask       | rsa       |
-| rsa         | inspect   |
-| argon2-cffi | os        |
-| base64      | re        |
-|             | time      |
-|             | typing    |
-|             | base64    |
+# Chatting - 一个开源的聊天软件
 
-- 运行服务器端/客户端均只需通过 python 运行py文件即可
-- 项目目标是提供一个便捷的聊天软件
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## 项目待完善的功能
-- 聊天功能
-  + [ ] 私聊
-  + [ ] 群聊
-  + [ ] 撤回
-  + [ ] 引用
-  + [ ] 表情包
-  + [ ] 收发文件
-  + [ ] 语音通话
-  + [ ] 共享屏幕
-  + [x] 登录/注册
-  + [x] token生成
-  + [ ] 加好友
-  + [ ] 加群
-  + [ ] Chat ID
-- 群功能
-  + [ ] 群头衔
-  + [ ] 禁言
-  + [ ] 踢出
-  + [ ] 邀请
-  + [ ] 拉入黑名单
-  + [ ] 进群审查
-  + [ ] 解散
-  + [ ] 创建
-- [ ] 完善的api
+Chatting 是一个基于 Textual TUI 框架开发的轻量级聊天客户端，配合 Flask 后端实现用户认证与 Token 管理。所有密码在传输前均使用 RSA 公钥加密，服务端使用 Argon2 进行哈希存储，保障基础安全。
 
-## 如何安转
-1. clone 此项目: `git clone https://github.com/13335637282/Chatting.git`
-2. 将路径转移到 Chatting 文件夹下: `cd Chatting`
-3. 运行安装依赖: `python -m pip install -r requirements.txt`
-4. 运行 server.py 获得`PRIVATE_KEY.chatting` 和 `PUBLIC_KEY.chatting`文件
-5. 将 `PUBLIC_KEY.chatting` 移动到 `client.py` 运行目录下 (如果你的 client 要分发给其他人的话 请不要将 `PRIVATE_KEY.chatting` 给其他人，以免造成密码泄露)
-6. 修改 `client.py` 中的 BASE_URL 字段， 修改为你自己的服务器ip : `http://<your_server_ip>/api/v1`
-7. 运行 `client.py` 测试是否可以正常使用 (如果不行请先确认是否是程序bug，如果是 请提交issue，如果无法确定请参阅故障排查)
+## ✨ 功能特性
 
-## 故障排查
-*因项目还在开放阶段，暂时没有。*
+### 已完成
+- [x] 用户注册 / 登录
+- [x] 服务端 Token 生成与维护
+- [x] 命令行图形界面（TUI）
 
-## 网络 API
-*注: 以下省略最前面的/api/<api_version>*  
-*当前 api_version 为 v1*  
-  
-### 注册
-> POST /users  
+### 待完善
+- [ ] 私聊 / 群聊
+- [ ] 消息撤回与引用
+- [ ] 文件传输与表情包
+- [ ] 语音 / 视频通话
+- [ ] 好友
+- [ ] 群组管理
+- [ ] 完善的 API 及权限控制
 
-返回状态码表格
+## 🛠 技术栈
 
-| 状态码 | 含义                                                 |
-|-----|----------------------------------------------------|
-| 400 | 请求体不为json / 没有提供密码 和 用户名 /  rsa 解码错误 / 密码不是 str 类型 |
-| 409 | 用户名已存在                                             |
-| 201 | 创建成功                                               |
+| 组件     | 技术                                                                 |
+|----------|----------------------------------------------------------------------|
+| 客户端   | Python, Textual, Rich, Requests, RSA, Argon2                        |
+| 服务端   | Python, Flask, SQLite, RSA, Argon2, logging, uuid                   |
+| 加密     | RSA (密钥交换), Argon2 (密码哈希), Base64 (编码)                    |
 
-返回体:  
-400 / 409 :
-```
+## 📦 安装
+
+### 环境要求
+- Python 3.8+
+- pip
+
+### 步骤
+1. 克隆仓库
+   ```bash
+   git clone https://github.com/13335637282/Chatting.git
+   cd Chatting
+   ```
+
+2. 安装依赖
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. 启动服务端（生成 RSA 密钥对）
+   ```bash
+   python server.py
+   ```
+   首次运行会在当前目录生成 `PRIVATE_KEY.chatting` 和 `PUBLIC_KEY.chatting`。  
+   **注意**：`PRIVATE_KEY.chatting` 必须严格保密，仅保留在服务端。
+
+4. 配置客户端
+   - 将服务端生成的 `PUBLIC_KEY.chatting` 复制到客户端运行目录。
+   - 修改 `client.py` 中的 `BASE_URL` 变量，指向你的服务端地址（格式 `http://your-server-ip:5000/api/v1` ）。
+
+5. 运行客户端
+   ```bash
+   python client.py
+   ```
+
+## 📖 API 文档
+
+所有 API 端点前缀为 `/api/v1`。请求与响应均为 JSON 格式。
+
+如需向用户展示错误，建议返回请求体里的error对象 (如果有的话)，  
+下列有error 对象的返回值，会在末尾标注 [返回体中有error对象]
+
+在client中 login 等 函数的状态码返回-1则为和服务器发送/接受请求的时候发生错误，需特殊处理
+
+### 用户注册 `POST /users`
+**请求体**
+```json
 {
-  "error": <str : 错误原因(人类可读)>
+  "username": "alice",
+  "password": "<Base64 编码的 RSA 加密密码>"
 }
 ```
+**响应**
+- `201 Created`：注册成功
+  ```json
+  { "message": "用户创建成功" }
+  ```
+- `400 Bad Request`：请求格式错误或字段缺失[返回体中有error对象]
+- `409 Conflict`：用户名已存在[返回体中有error对象]
 
-201 :
+### 用户登录 `POST /sessions`
+**请求体**  
+（同注册）  
+**响应**
+- `200 OK`：登录成功，返回 Token
+  ```json
+  {
+    "message": "登录成功",
+    "username": "<用户名>",
+    "token": "uuid-token"
+  }
+  ```
+- `401 Unauthorized`：用户名或密码错误[返回体中有error对象]
+- `400 Bad Request`：请求格式错误[返回体中有error对象]
+
+### 获取用户信息 `GET /users/<token>`
+*警告: 此向请求还在开发阶段，未来有计划移除这项接口*  
+
+**路径参数**：`token` - 登录时获得的 Token  
+**响应**
+- `200 OK`：返回用户基本信息
+  ```json
+  {
+    "id": <id>,
+    "username": "<用户名>"
+  }
+  ```
+- `401 Unauthorized`：Token 无效或过期[返回体中有error对象]
+- `404 Not Found`：用户不存在[返回体中有error对象]
+
+### 登出 `DELETE /sessions`
+**请求体**
+```json
+{ "token": "token" }
 ```
- {  
- "message": <str : 消息(人类可读)>  
-}
+**响应**
+- `200 OK`：登出成功 [返回体中有msg对象]
+- `401 Unauthorized`：Token 无效 [返回体中有error对象]
+
+### 健康检查 `GET /health`
+**响应**
+```json
+{ "status": "ok" }
 ```
 
-### 登录
-> POST /sessions  
+## 🐛 故障排查
 
-| 状态码 | 含义                                         |
-|-----|--------------------------------------------|
-| 400 | 请求体不为json / 没有提供密码 和 用户名 / 在登录时发生了hash校验错误 |
-| 200 | 登录成功将会返回一个 token                           |
-| 401 | 用户名或密码错误                                   |
+| 现象                               | 可能原因                         | 解决方法                                |
+|----------------------------------|------------------------------|-------------------------------------|
+| 客户端启动提示缺少公钥文件                    | `PUBLIC_KEY.chatting` 未复制到目录 | 从服务端复制公钥文件至客户端运行目录                  |
+| 注册/登录时提示“服务器无法理解请求”              | RSA 解密失败，公钥与服务端不匹配           | 确认客户端使用的公钥与服务器私钥配对                  |
+| 服务端启动时报错“Address already in use” | 端口 5000 已被占用                 | 修改 `server.py` 中的 `port` 参数，或关闭占用程序 |
+| 客户端连接超时                          | 服务端未启动或网络不通                  | 检查服务端运行状态及防火墙设置                     |
 
-返回体:  
-400 / 401 :
-```
-{
-  "error": <error: str 错误原因(人类可读)>
-}
-```
+## 🤝 贡献指南
 
-200 :
-```
-{
-  "message": "登录成功",
-  "username": <username: str 用户名>,
-  "token": <token: str 登录token>
-}
-```
+欢迎提交 Issue 或 Pull Request。在贡献代码前，请确保：
+- 代码风格与现有代码保持一致。
+- 新功能包含必要的注释和文档。
+- 提交前运行测试，确保原有功能正常。
 
-## 协议
-本项目协议主题存储在 LICENSE 文件夹， 为 Apache License 2.0 协议。以文件内容为准
+## 📄 许可证
 
-## Bug 预警
-所有操作均可能导致出现bug
+本项目基于 [Apache License 2.0](LICENSE) 开源。  
+使用本项目时，请保留原始版权声明及许可证文本。

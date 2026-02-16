@@ -3,12 +3,11 @@ import logging
 import os
 import sqlite3
 import uuid
-from pathlib import Path
 
-from argon2 import PasswordHasher
 import rsa
+from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, request, jsonify
 from rsa import PrivateKey
 
 from client import debug_print
@@ -27,7 +26,8 @@ logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s/%(name)s %(levelnam
 logger.addHandler(logging.FileHandler('server.log'))
 
 # ---------- 初始化数据库 ----------
-def init_db():
+def init_db() -> None:
+    """初始化一个 login.db 数据库，使用sqlite库创建"""
     conn = sqlite3.connect('login.db')
     c = conn.cursor()
     c.execute('''
@@ -42,7 +42,10 @@ def init_db():
 
 init_db()
 
-def create_rsa_key():
+def create_rsa_key() -> None:
+    """
+    如果 RSA 公私钥不存在 则自动生成
+    """
     logger.info("正在检测是否有公私钥中...")
     if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists("PRIVATE_KEY.chatting"):
         logger.info("未检测到有公钥和私钥，正在自动生成。")
@@ -58,7 +61,8 @@ def create_rsa_key():
         return
     logger.info("检测到公私钥 √")
 
-def rsa_decrypt(bytes_:bytes):
+def rsa_decrypt(bytes_:bytes) -> None:
+
     with open("PRIVATE_KEY.chatting", mode='rb') as fread:
         priv_key = PrivateKey.load_pkcs1(fread.read())
         fread.close()
@@ -67,22 +71,18 @@ def rsa_decrypt(bytes_:bytes):
     return cipher_bin
 
 # ---------- 数据库连接辅助 ----------
-def get_db():
+def get_db() -> sqlite3.Connection:
+    """
+    获取login.db的sqlite3 Connection 对象
+    """
     conn = sqlite3.connect('login.db')
     conn.row_factory = sqlite3.Row
     return conn
 
-# ---------- 哈希工具 ----------
-def hash(text: str) -> str:
-    return ph.hash(text)
-
-# ========== RESTful 资源端点 ==========
-
-# ----- 资源：用户 (User) -----
 @app.route(f'/api/{api_version}/users', methods=['POST'])
 def create_user():
     """
-    创建新用户（注册）
+    创建新用户（api POST /users）
     """
     data = request.get_json()
     if not data:
@@ -115,9 +115,7 @@ def create_user():
 @app.route(f'/api/{api_version}/users/<token>', methods=['GET'])
 def get_user(token:str):
     """
-    获取用户信息（演示资源定位，仅返回基本信息）
-    ---
-    GET /api/v1/users/alice
+    还在开发中的api 暂无文档
     """
     if (token_map.get(token) is None):
         return jsonify({'error': 'token 错误'}), 401
@@ -135,17 +133,21 @@ def get_user(token:str):
         return jsonify({'error': '用户不存在'}), 404
 
 def random_token() -> str:
-    for i in range(10):
-        token = str(uuid.uuid4())
+    """
+    随机一个token,
+    如果这个token已经被占用，就会重新 生成一个，直到生成一个未被占用的token
+    构造函数：token = str(uuid.uuid5(uuid.uuid4(),str(uuid.uuid4())))
+    """
+    while True:
+        token = str(uuid.uuid5(uuid.uuid4(),str(uuid.uuid4())))
         if token_map.get(token) is None:
             return str(token)
-    return ""
 
 # ----- 资源：会话 (Session) -----
 @app.route(f'/api/{api_version}/sessions', methods=['POST'])
 def create_session():
     """
-    创建会话（登录）
+    api 接口 POST /sessions
     """
     data = request.get_json()
     if not data:
@@ -182,8 +184,12 @@ def create_session():
             return jsonify({'error': '不合法的Hash'}), 401
 
         token = random_token()
+        for i in token_map.keys():
+            if token_map[i] == username:
+                token_map.pop(i)
         token_map[token] = username
-        # 登录成功，可在此生成 JWT 或 Session Token，示例中只返回消息
+        debug_print(f"{token_map[token]}")
+        # 登录成功，返回 Token。
         return jsonify({
             'message': '登录成功',
             'username': username,
@@ -194,6 +200,9 @@ def create_session():
 
 @app.route(f'/api/{api_version}/sessions', methods=['DELETE'])
 def delete_session():
+    """
+    删除一个存在的token (api DELETE /sessions)
+    """
     if token_map.get(request.get_json().get('token')) is None:
         return jsonify({"error":"token 失效"}), 401
     else:
@@ -206,9 +215,12 @@ def delete_session():
     return jsonify({"msg":"完成"}), 200
 
 
-# ---------- 健康检查（可选） ----------
+# ---------- 健康检查 ----------
 @app.route(f'/api/{api_version}/health', methods=['GET'])
 def health():
+    """
+    检查与服务器的链接 (api GET /health)
+    """
     return jsonify({'status': 'ok'}), 200
 
 if __name__ == '__main__':
