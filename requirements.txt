@@ -3,4 +3,5 @@ rsa==4.9.1
 rich==14.3.2
 textual==7.5.0
 Flask==3.1.2
-argon2-cffi
+argon2-cffi==25.1.0
+pyqt5==5.15.11

@@ -1,4 +1,5 @@
 import base64
+import logging
 
 import requests  # type: ignore[import-untyped]
 import rsa
@@ -6,11 +7,11 @@ from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 
-from logger import Logger
-
 BASE_URL = "http://127.0.0.1:5000/api/v1"
-logger = Logger("client/root", "client.log", "ZERO", mask_tokens=True)
-ph = PasswordHasher()
+logger = logging.getLogger("client/api")
+logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.FileHandler("client.log"))
 
 __license__ = """Apache License 2.0"""
 
@@ -250,3 +251,6 @@ def remove_friend(token: str, friend_id: int) -> Response:
         rep: Response = Response()
         rep.status_code = -1
         return rep
+
+if __name__ == "__main__":
+    print("client_api.py 并不是一个运行执行代码的文件，如需访问功能，请参阅 readme.md")
