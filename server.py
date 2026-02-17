@@ -13,8 +13,6 @@ from argon2.exceptions import (InvalidHashError, VerificationError,
 from flask import Flask, jsonify, request
 from rsa import PrivateKey
 
-from client import debug_print
-
 __license__ = """Apache License 2.0"""
 
 app = Flask(__name__)
@@ -46,6 +44,18 @@ def init_login_db() -> None:
     """)
     conn.commit()
     conn.close()
+
+
+def debug_print(*args: object):
+    """
+    *args: 一个object对象，每个 arg 输出时会在中间空一个空格
+    debug_print("1",1) 会往client.log 输出日志 "1 1"
+    如果文件写入被系统中断 (OSError) 会予以静默处理
+    """
+    try:
+        logger.debug(" ".join(str(arg) for arg in args))
+    except OSError:
+        pass
 
 
 def init_friend_db() -> None:
@@ -173,7 +183,7 @@ def get_user_id_by_username(username: str) -> int:
         "SELECT id FROM users WHERE username = ?", (username,)
     ).fetchone()
     conn.close()
-    return user["id"] if user else None
+    return user["id"] if user else None  # type: ignore[return-value]
 
 
 def get_username_by_id(user_id: int) -> str:
@@ -183,7 +193,7 @@ def get_username_by_id(user_id: int) -> str:
         "SELECT username FROM users WHERE id = ?", (user_id,)
     ).fetchone()
     conn.close()
-    return user["username"] if user else None
+    return user["username"] if user else None  # type: ignore[return-value]
 
 
 @app.route(f"/api/{api_version}/users", methods=["POST"])
@@ -411,7 +421,7 @@ def get_incoming_requests():
            FROM friend_requests
            WHERE to_user_id = ? AND status = 'pending'
            ORDER BY created_at DESC""",
-        (user_id,)
+        (user_id,),
     ).fetchall()
     conn_req.close()
 
@@ -423,13 +433,15 @@ def get_incoming_requests():
             "SELECT username FROM users WHERE id = ?", (req["from_user_id"],)
         ).fetchone()
         if from_user:
-            result.append({
-                "request_id": req["id"],
-                "from_user_id": req["from_user_id"],
-                "from_username": from_user["username"],
-                "message": req["message"],
-                "created_at": req["created_at"]
-            })
+            result.append(
+                {
+                    "request_id": req["id"],
+                    "from_user_id": req["from_user_id"],
+                    "from_username": from_user["username"],
+                    "message": req["message"],
+                    "created_at": req["created_at"],
+                }
+            )
     conn_login.close()
 
     return jsonify({"requests": result}), 200
@@ -452,7 +464,7 @@ def get_outgoing_requests():
            FROM friend_requests
            WHERE from_user_id = ?
            ORDER BY created_at DESC""",
-        (user_id,)
+        (user_id,),
     ).fetchall()
     conn_req.close()
 
@@ -464,17 +476,20 @@ def get_outgoing_requests():
             "SELECT username FROM users WHERE id = ?", (req["to_user_id"],)
         ).fetchone()
         if to_user:
-            result.append({
-                "request_id": req["id"],
-                "to_user_id": req["to_user_id"],
-                "to_username": to_user["username"],
-                "message": req["message"],
-                "status": req["status"],
-                "created_at": req["created_at"]
-            })
+            result.append(
+                {
+                    "request_id": req["id"],
+                    "to_user_id": req["to_user_id"],
+                    "to_username": to_user["username"],
+                    "message": req["message"],
+                    "status": req["status"],
+                    "created_at": req["created_at"],
+                }
+            )
     conn_login.close()
 
     return jsonify({"requests": result}), 200
+
 
 @app.route(
     f"/api/{api_version}/friends/requests/<int:request_id>/accept", methods=["POST"]
@@ -619,8 +634,7 @@ def get_friends_list():
     # 从 friends.db 获取好友ID列表
     conn_friend = get_friend_db()
     friend_rows = conn_friend.execute(
-        "SELECT friend_id, created_at FROM friends WHERE user_id = ?",
-        (user_id,)
+        "SELECT friend_id, created_at FROM friends WHERE user_id = ?", (user_id,)
     ).fetchall()
     conn_friend.close()
 
@@ -633,14 +647,17 @@ def get_friends_list():
             "SELECT username FROM users WHERE id = ?", (friend_id,)
         ).fetchone()
         if user:
-            result.append({
-                "user_id": friend_id,
-                "username": user["username"],
-                "created_at": row["created_at"]
-            })
+            result.append(
+                {
+                    "user_id": friend_id,
+                    "username": user["username"],
+                    "created_at": row["created_at"],
+                }
+            )
     conn_login.close()
 
     return jsonify({"friends": result}), 200
+
 
 @app.route(f"/api/{api_version}/friends/<int:friend_id>", methods=["DELETE"])
 def remove_friend(friend_id):

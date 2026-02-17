@@ -1,11 +1,12 @@
+import os
+import threading
+
+import requests  # type: ignore[import-untyped]
+from requests.models import Response  # type: ignore[import-untyped]
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Container
 from textual.widgets import Button, Footer, Header, Input, Label
-import os
-import threading
-import requests  # type: ignore[import-untyped]
-from requests.models import Response  # type: ignore[import-untyped]
 
 from client_api import *
 
@@ -94,7 +95,6 @@ if __name__ == "__main__":
         def changed_user_password(self, event: Input.Changed) -> None:
             self.password = event.value
 
-
     class ChattingApp(App):  # type: ignore[no-redef]
         CSS_PATH = "login.css"
         ENABLE_COMMAND_PALETTE = False  # Do not need the command palette
@@ -121,10 +121,11 @@ if __name__ == "__main__":
                 "textual-dark" if self.theme == "textual-light" else "textual-light"
             )
 
-
     def main():
         if not os.path.exists("PUBLIC_KEY.chatting"):
-            logger.error("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
+            logger.error(
+                "缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。"
+            )
             print("缺少 RSA公钥 程序无法运行，请找服务端索要公钥。警告：不要修改文件。")
             exit(-1)
         try:
@@ -146,6 +147,5 @@ if __name__ == "__main__":
             chatting.run()
         else:
             print("登录失败")
-
 
     main()

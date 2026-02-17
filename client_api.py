@@ -56,7 +56,9 @@ def register(username: str, plain_password: str) -> Response:
         }
         debug_print(f"[注册] 请求中... 请求体: {payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        debug_print(
+            f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
+        )
         return resp
     except Exception:
         rep: Response = Response()
@@ -81,7 +83,9 @@ def login(username: str, plain_password: str) -> Response:
         }
         debug_print(f"[登录] 请求中... Password:{payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        debug_print(
+            f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
+        )
         return resp
     except Exception:
         rep: Response = Response()
@@ -121,7 +125,10 @@ def logout(token) -> Response:
         rep.status_code = -1
         return rep
 
-def send_friend_request(token: str, friend_username: str, message: str = "") -> Response:
+
+def send_friend_request(
+    token: str, friend_username: str, message: str = ""
+) -> Response:
     """
     发送好友请求
     API POST /friends/requests
@@ -131,7 +138,7 @@ def send_friend_request(token: str, friend_username: str, message: str = "") -> 
         payload = {
             "token": token,
             "friend_username": friend_username,
-            "message": message
+            "message": message,
         }
         debug_print(f"[发送好友请求] 请求中... 好友: {friend_username}")
         resp: Response = requests.post(url, json=payload)
