@@ -7,25 +7,16 @@ from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 
-BASE_URL = "http://127.0.0.1:5000/api/v1"
+BASE_URL = "http://26.88.69.206:5000/api/v1"
 logger = logging.getLogger("client/api")
-logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s/%(name)s %(levelname)s]%(filename)s.%(funcName)s(%(lineno)s):\n %(message)s",
+)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.FileHandler("client.log"))
 
 __license__ = """Apache License 2.0"""
-
-
-def debug_print(*args: object):
-    """
-    *args: 一个object对象，每个 arg 输出时会在中间空一个空格
-    debug_print("1",1) 会往client.log 输出日志 "1 1"
-    如果文件写入被系统中断 (OSError) 会予以静默处理
-    """
-    try:
-        logger.debug(" ".join(str(arg) for arg in args))
-    except OSError:
-        pass
 
 
 def rsa_encrypt(bytes_: bytes) -> bytes:
@@ -48,16 +39,16 @@ def register(username: str, plain_password: str) -> Response:
     """
     try:
         url = f"{BASE_URL}/users"
-        debug_print("[注册] 创建请求体中")
+        logger.debug("[注册] 创建请求体中")
         payload = {
             "username": username,
             "password": base64.b64encode(
                 rsa_encrypt(plain_password.encode("utf-8"))
             ).decode("utf-8"),
         }
-        debug_print(f"[注册] 请求中... 请求体: {payload}")
+        logger.debug(f"[注册] 请求中... 请求体: {payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(
+        logger.debug(
             f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
         )
         return resp
@@ -74,7 +65,7 @@ def login(username: str, plain_password: str) -> Response:
     注意：**如果向服务器请求失败，会返回一个状态码为-1的Response对象**
     """
     try:
-        debug_print("[登录] 创建请求体中...")
+        logger.debug("[登录] 创建请求体中...")
         url = f"{BASE_URL}/sessions"
         payload = {
             "username": username,
@@ -82,9 +73,9 @@ def login(username: str, plain_password: str) -> Response:
                 rsa_encrypt(plain_password.encode("utf-8"))
             ).decode("utf-8"),
         }
-        debug_print(f"[登录] 请求中... Password:{payload}")
+        logger.debug(f"[登录] 请求中... Password:{payload}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(
+        logger.debug(
             f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
         )
         return resp
@@ -102,7 +93,7 @@ def get_user(token) -> Response:
     try:
         url = f"{BASE_URL}/users/{token}"
         resp: Response = requests.get(url)
-        debug_print(f"[查询] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        logger.debug(f"[查询] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -119,7 +110,7 @@ def logout(token) -> Response:
         url = f"{BASE_URL}/sessions"
         payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
-        debug_print(f"[登出] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        logger.debug(f"[登出] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -141,9 +132,9 @@ def send_friend_request(
             "friend_username": friend_username,
             "message": message,
         }
-        debug_print(f"[发送好友请求] 请求中... 好友: {friend_username}")
+        logger.debug(f"[发送好友请求] 请求中... 好友: {friend_username}")
         resp: Response = requests.post(url, json=payload)
-        debug_print(f"[发送好友请求] -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        logger.debug(f"[发送好友请求] -> 状态 {resp.status_code}, 响应: {resp.json()}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -160,7 +151,7 @@ def get_incoming_requests(token: str) -> Response:
         url = f"{BASE_URL}/friends/requests/incoming"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
-        debug_print(f"[获取收到的请求] -> 状态 {resp.status_code}")
+        logger.debug(f"[获取收到的请求] -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -177,7 +168,7 @@ def get_outgoing_requests(token: str) -> Response:
         url = f"{BASE_URL}/friends/requests/outgoing"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
-        debug_print(f"[获取发出的请求] -> 状态 {resp.status_code}")
+        logger.debug(f"[获取发出的请求] -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -194,7 +185,7 @@ def accept_friend_request(token: str, request_id: int) -> Response:
         url = f"{BASE_URL}/friends/requests/{request_id}/accept"
         payload = {"token": token}
         resp: Response = requests.post(url, json=payload)
-        debug_print(f"[接受好友请求] {request_id} -> 状态 {resp.status_code}")
+        logger.debug(f"[接受好友请求] {request_id} -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -211,7 +202,7 @@ def reject_friend_request(token: str, request_id: int) -> Response:
         url = f"{BASE_URL}/friends/requests/{request_id}/reject"
         payload = {"token": token}
         resp: Response = requests.post(url, json=payload)
-        debug_print(f"[拒绝好友请求] {request_id} -> 状态 {resp.status_code}")
+        logger.debug(f"[拒绝好友请求] {request_id} -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -228,7 +219,7 @@ def get_friends_list(token: str) -> Response:
         url = f"{BASE_URL}/friends"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
-        debug_print(f"[获取好友列表] -> 状态 {resp.status_code}")
+        logger.debug(f"[获取好友列表] -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
@@ -245,12 +236,13 @@ def remove_friend(token: str, friend_id: int) -> Response:
         url = f"{BASE_URL}/friends/{friend_id}"
         payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
-        debug_print(f"[删除好友] {friend_id} -> 状态 {resp.status_code}")
+        logger.debug(f"[删除好友] {friend_id} -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
         rep.status_code = -1
         return rep
+
 
 if __name__ == "__main__":
     print("client_api.py 并不是一个运行执行代码的文件，如需访问功能，请参阅 readme.md")

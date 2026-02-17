@@ -46,18 +46,6 @@ def init_login_db() -> None:
     conn.close()
 
 
-def debug_print(*args: object):
-    """
-    *args: 一个object对象，每个 arg 输出时会在中间空一个空格
-    debug_print("1",1) 会往client.log 输出日志 "1 1"
-    如果文件写入被系统中断 (OSError) 会予以静默处理
-    """
-    try:
-        logger.debug(" ".join(str(arg) for arg in args))
-    except OSError:
-        pass
-
-
 def init_friend_db() -> None:
     """初始化 friends.db 数据库，使用sqlite库创建"""
     conn = sqlite3.connect("friends.db")
@@ -308,7 +296,7 @@ def create_session():
             if token_map[i] == username:
                 token_map.pop(i)
         token_map[token] = username
-        debug_print(f"{token_map[token]}")
+        logger.debug(f"{token_map[token]}")
         # 登录成功，返回 Token。
         return (
             jsonify({"message": "登录成功", "username": username, "token": token}),

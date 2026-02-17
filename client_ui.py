@@ -23,7 +23,10 @@ maliang.Text(cv, (640, 200), text="账 号 登 录", fontsize=48, anchor="center
 maliang.Text(cv, (450, 300), text="账号", anchor="nw")
 user_name = maliang.InputBox(cv, (450, 340), (380, 50), placeholder="点击输入账号")
 maliang.Text(cv, (450, 400), text="密码", anchor="nw")
-password = maliang.InputBox(cv, (450, 440), (380, 50), show="*", placeholder="点击输入密码")
+password = maliang.InputBox(
+    cv, (450, 440), (380, 50), show="*", placeholder="点击输入密码"
+)
+
 
 def login_action():
     r = login(user_name.get(), password.get())
@@ -39,6 +42,7 @@ def login_action():
         maliang.TkMessage(f"登录失败: {r.json().get("error")}")
     else:
         maliang.TkMessage("发生了未知错误!")
+
 
 def register_action():
     global input_pwd_count
@@ -65,8 +69,9 @@ def register_action():
         pwds.clear()
 
 
-
-maliang.Button(cv, (450, 540), (180, 50), text="注 册", command=lambda: register_action())
+maliang.Button(
+    cv, (450, 540), (180, 50), text="注 册", command=lambda: register_action()
+)
 maliang.Button(cv, (650, 540), (180, 50), text="登 录", command=lambda: login_action())
 
 root.mainloop()
