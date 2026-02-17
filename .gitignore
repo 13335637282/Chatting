@@ -46,3 +46,4 @@ Thumbs.db
 *.chatting
 *.db
 test.py
+mypy.ini
