@@ -39,7 +39,7 @@ def login_action():
         root.destroy()
         token = r.json().get("token")
     elif r.status_code != 200 and r.status_code != -1:
-        maliang.TkMessage(f"登录失败: {r.json().get("error")}")
+        maliang.TkMessage(f"登录失败: {r.json().get('error')}")
     else:
         maliang.TkMessage("发生了未知错误!")
 
@@ -53,7 +53,7 @@ def register_action():
         if r.status_code == 201:
             maliang.TkMessage("注册成功!")
         elif r.status_code != 201 and r.status_code != -1:
-            maliang.TkMessage(f"注册失败: {r.json().get("error")}")
+            maliang.TkMessage(f"注册失败: {r.json().get('error')}")
         else:
             maliang.TkMessage("发生了未知错误!")
         password.clear()
