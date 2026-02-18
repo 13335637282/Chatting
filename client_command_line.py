@@ -1,6 +1,5 @@
 import argparse
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import rich
 
@@ -9,7 +8,7 @@ from client_api import (accept_friend_request, get_friends_list,
                         logout, register, reject_friend_request, remove_friend,
                         send_friend_request)
 
-# ========== 函数映射表（将字符串映射到实际函数） ==========
+# ========== 函数映射表 ==========
 FUNCTIONS = {
     "register": register,
     "login": login,
@@ -24,12 +23,6 @@ FUNCTIONS = {
 }
 
 # ========== 命令配置（数据与代码分离） ==========
-# 配置格式：
-# - id: 子命令名称
-# - help: 帮助信息
-# - function: (叶子命令) 对应的函数名，须在 FUNCTIONS 中定义
-# - args: (叶子命令) 参数列表，每个参数包含 name（--长选项）, short（-短选项）, type, required, default, help
-# - subcommands: (中间命令) 子命令列表
 COMMANDS = [
     {
         "id": "register",
@@ -39,6 +32,7 @@ COMMANDS = [
             {
                 "name": "--username",
                 "short": "-u",
+                "dest": "username",
                 "type": str,
                 "required": True,
                 "help": "用户名",
@@ -46,6 +40,7 @@ COMMANDS = [
             {
                 "name": "--password",
                 "short": "-p",
+                "dest": "plain_password",
                 "type": str,
                 "required": True,
                 "help": "密码",
@@ -60,6 +55,7 @@ COMMANDS = [
             {
                 "name": "--username",
                 "short": "-u",
+                "dest": "username",
                 "type": str,
                 "required": True,
                 "help": "用户名",
@@ -67,6 +63,7 @@ COMMANDS = [
             {
                 "name": "--password",
                 "short": "-p",
+                "dest": "plain_password",
                 "type": str,
                 "required": True,
                 "help": "密码",
@@ -81,6 +78,7 @@ COMMANDS = [
             {
                 "name": "--token",
                 "short": "-t",
+                "dest": "token",
                 "type": str,
                 "required": True,
                 "help": "身份令牌",
@@ -103,6 +101,7 @@ COMMANDS = [
                             {
                                 "name": "--token",
                                 "short": "-t",
+                                "dest": "token",
                                 "type": str,
                                 "required": True,
                                 "help": "身份令牌",
@@ -110,6 +109,7 @@ COMMANDS = [
                             {
                                 "name": "--friend-username",
                                 "short": "-f",
+                                "dest": "friend_username",
                                 "type": str,
                                 "required": True,
                                 "help": "对方用户名",
@@ -117,6 +117,7 @@ COMMANDS = [
                             {
                                 "name": "--message",
                                 "short": "-m",
+                                "dest": "message",
                                 "type": str,
                                 "required": False,
                                 "default": "",
@@ -132,6 +133,7 @@ COMMANDS = [
                             {
                                 "name": "--token",
                                 "short": "-t",
+                                "dest": "token",
                                 "type": str,
                                 "required": True,
                                 "help": "身份令牌",
@@ -146,6 +148,7 @@ COMMANDS = [
                             {
                                 "name": "--token",
                                 "short": "-t",
+                                "dest": "token",
                                 "type": str,
                                 "required": True,
                                 "help": "身份令牌",
@@ -160,6 +163,7 @@ COMMANDS = [
                             {
                                 "name": "--token",
                                 "short": "-t",
+                                "dest": "token",
                                 "type": str,
                                 "required": True,
                                 "help": "身份令牌",
@@ -167,6 +171,7 @@ COMMANDS = [
                             {
                                 "name": "--request-id",
                                 "short": "-r",
+                                "dest": "request_id",
                                 "type": int,
                                 "required": True,
                                 "help": "请求ID",
@@ -181,6 +186,7 @@ COMMANDS = [
                             {
                                 "name": "--token",
                                 "short": "-t",
+                                "dest": "token",
                                 "type": str,
                                 "required": True,
                                 "help": "身份令牌",
@@ -188,6 +194,7 @@ COMMANDS = [
                             {
                                 "name": "--request-id",
                                 "short": "-r",
+                                "dest": "request_id",
                                 "type": int,
                                 "required": True,
                                 "help": "请求ID",
@@ -204,6 +211,7 @@ COMMANDS = [
                     {
                         "name": "--token",
                         "short": "-t",
+                        "dest": "token",
                         "type": str,
                         "required": True,
                         "help": "身份令牌",
@@ -218,6 +226,7 @@ COMMANDS = [
                     {
                         "name": "--token",
                         "short": "-t",
+                        "dest": "token",
                         "type": str,
                         "required": True,
                         "help": "身份令牌",
@@ -225,6 +234,7 @@ COMMANDS = [
                     {
                         "name": "--friend-id",
                         "short": "-f",
+                        "dest": "friend_id",
                         "type": int,
                         "required": True,
                         "help": "好友ID",
@@ -239,46 +249,35 @@ COMMANDS = [
 def build_parser(
     parser: argparse.ArgumentParser, commands: List[Dict[str, Any]]
 ) -> None:
-    """
-    递归构建 argparse 子命令解析器
-    :param parser: 当前层级的解析器（将为其添加子命令）
-    :param commands: 命令配置列表
-    """
-    # 为当前解析器添加子命令组（必须指定 dest 和 required）
+    """递归构建 argparse 子命令解析器"""
     subparsers = parser.add_subparsers(title="子命令", dest="subcommand", required=True)
 
     for cmd in commands:
         cmd_parser = subparsers.add_parser(cmd["id"], help=cmd.get("help", ""))
 
         if "subcommands" in cmd:
-            # 中间节点：递归添加下一级子命令
             build_parser(cmd_parser, cmd["subcommands"])
         else:
-            # 叶子节点：添加参数并绑定处理函数
+            # 叶子命令：添加参数
             for arg in cmd.get("args", []):
-                # 构建选项名列表（长选项 + 短选项）
                 option_strings = [arg["name"]]
                 if "short" in arg:
                     option_strings.append(arg["short"])
 
-                # 根据 required 和 default 添加参数
+                add_kwargs = {
+                    "type": arg.get("type", str),
+                    "help": arg.get("help", ""),
+                }
                 if arg.get("required", False):
-                    cmd_parser.add_argument(
-                        *option_strings,
-                        type=arg.get("type", str),
-                        required=True,
-                        help=arg.get("help", ""),
-                    )
+                    add_kwargs["required"] = True
                 else:
-                    cmd_parser.add_argument(
-                        *option_strings,
-                        type=arg.get("type", str),
-                        required=False,
-                        default=arg.get("default"),
-                        help=arg.get("help", ""),
-                    )
+                    add_kwargs["default"] = arg.get("default")
+                if "dest" in arg:
+                    add_kwargs["dest"] = arg["dest"]
 
-            # 将处理函数保存在解析结果中
+                cmd_parser.add_argument(*option_strings, **add_kwargs)
+
+            # 绑定处理函数
             cmd_parser.set_defaults(func=FUNCTIONS[cmd["function"]])
 
 
@@ -286,7 +285,6 @@ def print_response(resp) -> None:
     """尝试用 rich 美观地打印响应"""
     try:
         rich.inspect(resp)
-        # 尝试打印 JSON 内容
         if hasattr(resp, "json") and callable(resp.json):
             try:
                 data = resp.json()
@@ -301,26 +299,18 @@ def print_response(resp) -> None:
 
 
 if __name__ == "__main__":
-    # 创建顶层解析器
     parser = argparse.ArgumentParser(description="聊天客户端调试工具（配置驱动）")
     build_parser(parser, COMMANDS)
 
     args = parser.parse_args()
 
     try:
-        # 获取叶子命令绑定的处理函数
         func = args.func
-
-        # 提取参数（过滤掉 argparse 内部添加的键）
+        # 提取参数（过滤掉内部字段）
         kwargs = {
             k: v for k, v in vars(args).items() if k not in ("func", "subcommand")
         }
-
-        # 调用 API 函数
         response = func(**kwargs)
-
-        # 打印结果
         print_response(response)
-
     except Exception as e:
         rich.print(f"[red]执行命令时发生异常: {e}[/red]")

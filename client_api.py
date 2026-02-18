@@ -7,7 +7,7 @@ from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 
-BASE_URL = "http://26.88.69.206:5000/api/v1"
+BASE_URL = "http://127.0.0.1:5000/api/v1"
 logger = logging.getLogger("client/api")
 logging.basicConfig(
     level=logging.DEBUG,
