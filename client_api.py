@@ -244,5 +244,131 @@ def remove_friend(token: str, friend_id: int) -> Response:
         return rep
 
 
+def get_user_info(token: str, username: str) -> Response:
+    """
+    获取用户详细信息（仅自己和好友可见）
+    API GET /users/<username>?token=<token>
+
+    参数:
+        token: 当前登录用户的token
+        username: 要查询的用户名
+
+    返回:
+        如果是自己或好友，返回用户详细信息（包含昵称、生日、邮箱等资料）
+        如果是非好友，返回403错误
+    """
+    try:
+        url = f"{BASE_URL}/users/{username}"
+        params = {"token": token}
+        resp: Response = requests.get(url, params=params)
+        logger.debug(f"[获取用户信息] {username} -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+def update_user_profile(token: str, username: str, **kwargs) -> Response:
+    """
+    更新用户资料
+    API PUT /users/<username>/profile
+
+    参数:
+        token: 当前登录用户的token
+        username: 要更新资料的用户名（必须是自己）
+        **kwargs: 可更新的字段
+            - nickname: 昵称
+            - birthday: 生日 (格式: YYYY-MM-DD)
+            - gender: 性别 (male/female/other)
+            - avatar: 头像 (base64编码的图片数据)
+            - email: 邮箱
+            - phone: 电话
+            - bio: 个人简介
+
+    示例:
+        update_user_profile(token, "alice", nickname="爱丽丝", bio="Hello World")
+    """
+    try:
+        url = f"{BASE_URL}/users/{username}/profile"
+        payload = {"token": token}
+        # 添加所有提供的资料字段
+        for key, value in kwargs.items():
+            if value is not None:  # 只添加有值的字段
+                payload[key] = value
+
+        logger.debug(f"[更新用户资料] {username} -> 字段: {list(kwargs.keys())}")
+        resp: Response = requests.put(url, json=payload)
+        logger.debug(f"[更新用户资料] -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def rename_user(token: str, old_username: str, new_username: str) -> Response:
+    """
+    修改用户名
+    API PUT /users/<old_username>/rename
+
+    参数:
+        token: 当前登录用户的token
+        old_username: 当前用户名
+        new_username: 新用户名（至少3个字符）
+
+    注意:
+        修改用户名后，所有相关数据（好友关系、好友请求、用户资料）都会自动更新，
+        当前的token仍然有效（会自动关联到新用户名）
+    """
+    try:
+        url = f"{BASE_URL}/users/{old_username}/rename"
+        payload = {
+            "token": token,
+            "new_username": new_username
+        }
+        logger.debug(f"[修改用户名] {old_username} -> {new_username}")
+        resp: Response = requests.put(url, json=payload)
+        logger.debug(f"[修改用户名] -> 状态 {resp.status_code}, 响应: {resp.json()}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def search_users(token: str, query: str) -> Response:
+    """
+    搜索用户
+    API GET /users/search?q=<query>&token=<token>
+
+    参数:
+        token: 当前登录用户的token
+        query: 搜索关键词（至少2个字符）
+
+    返回:
+        {
+            "users": ["username1", "username2", ...]
+        }
+
+    注意:
+        搜索结果不包含自己，最多返回50个结果
+    """
+    try:
+        url = f"{BASE_URL}/users/search"
+        params = {
+            "token": token,
+            "q": query
+        }
+        logger.debug(f"[搜索用户] 关键词: {query}")
+        resp: Response = requests.get(url, params=params)
+        logger.debug(
+            f"[搜索用户] -> 状态 {resp.status_code}, 找到: {len(resp.json().get('users', [])) if resp.status_code == 200 else 0} 个用户")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
 if __name__ == "__main__":
     print("client_api.py 并不是一个运行执行代码的文件，如需访问功能，请参阅 readme.md")

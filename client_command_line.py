@@ -6,7 +6,8 @@ import rich
 from client_api import (accept_friend_request, get_friends_list,
                         get_incoming_requests, get_outgoing_requests, login,
                         logout, register, reject_friend_request, remove_friend,
-                        send_friend_request)
+                        send_friend_request, get_user_info, update_user_profile,
+                        rename_user, search_users)
 
 # ========== 函数映射表 ==========
 FUNCTIONS = {
@@ -20,6 +21,10 @@ FUNCTIONS = {
     "reject_friend_request": reject_friend_request,
     "get_friends_list": get_friends_list,
     "remove_friend": remove_friend,
+    "get_user_info": get_user_info,
+    "update_user_profile": update_user_profile,
+    "rename_user": rename_user,
+    "search_users": search_users,
 }
 
 # ========== 命令配置（数据与代码分离） ==========
@@ -82,6 +87,162 @@ COMMANDS = [
                 "type": str,
                 "required": True,
                 "help": "身份令牌",
+            },
+        ],
+    },
+    {
+        "id": "user",
+        "help": "用户相关操作",
+        "subcommands": [
+            {
+                "id": "info",
+                "help": "获取用户详细信息",
+                "function": "get_user_info",
+                "args": [
+                    {
+                        "name": "--token",
+                        "short": "-t",
+                        "dest": "token",
+                        "type": str,
+                        "required": True,
+                        "help": "身份令牌",
+                    },
+                    {
+                        "name": "--username",
+                        "short": "-u",
+                        "dest": "username",
+                        "type": str,
+                        "required": True,
+                        "help": "要查询的用户名",
+                    },
+                ],
+            },
+            {
+                "id": "profile",
+                "help": "更新个人资料",
+                "function": "update_user_profile",
+                "args": [
+                    {
+                        "name": "--token",
+                        "short": "-t",
+                        "dest": "token",
+                        "type": str,
+                        "required": True,
+                        "help": "身份令牌",
+                    },
+                    {
+                        "name": "--username",
+                        "short": "-u",
+                        "dest": "username",
+                        "type": str,
+                        "required": True,
+                        "help": "要更新资料的用户名（必须是自己）",
+                    },
+                    {
+                        "name": "--nickname",
+                        "dest": "nickname",
+                        "type": str,
+                        "required": False,
+                        "help": "昵称",
+                    },
+                    {
+                        "name": "--birthday",
+                        "dest": "birthday",
+                        "type": str,
+                        "required": False,
+                        "help": "生日 (YYYY-MM-DD)",
+                    },
+                    {
+                        "name": "--gender",
+                        "dest": "gender",
+                        "type": str,
+                        "required": False,
+                        "choices": ["male", "female", "other"],
+                        "help": "性别",
+                    },
+                    {
+                        "name": "--avatar",
+                        "dest": "avatar",
+                        "type": str,
+                        "required": False,
+                        "help": "头像 (base64编码)",
+                    },
+                    {
+                        "name": "--email",
+                        "dest": "email",
+                        "type": str,
+                        "required": False,
+                        "help": "邮箱",
+                    },
+                    {
+                        "name": "--phone",
+                        "dest": "phone",
+                        "type": str,
+                        "required": False,
+                        "help": "电话",
+                    },
+                    {
+                        "name": "--bio",
+                        "dest": "bio",
+                        "type": str,
+                        "required": False,
+                        "help": "个人简介",
+                    },
+                ],
+            },
+            {
+                "id": "rename",
+                "help": "修改用户名",
+                "function": "rename_user",
+                "args": [
+                    {
+                        "name": "--token",
+                        "short": "-t",
+                        "dest": "token",
+                        "type": str,
+                        "required": True,
+                        "help": "身份令牌",
+                    },
+                    {
+                        "name": "--old-username",
+                        "short": "-o",
+                        "dest": "old_username",
+                        "type": str,
+                        "required": True,
+                        "help": "当前用户名",
+                    },
+                    {
+                        "name": "--new-username",
+                        "short": "-n",
+                        "dest": "new_username",
+                        "type": str,
+                        "required": True,
+                        "help": "新用户名 (至少3个字符)",
+                    },
+                ],
+            },
+            {
+                "id": "search",
+                "help": "搜索用户",
+                "function": "search_users",
+                "args": [
+                    {
+                        "name": "--token",
+                        "short": "-t",
+                        "dest": "token",
+                        "type": str,
+                        "required": True,
+                        "help": "身份令牌",
+                    },
+                    {
+                        "name": "--query",
+                        "short": "-q",
+                        "dest": "query",
+                        "type": str,
+                        "required": True,
+                        "help": "搜索关键词 (至少2个字符)",
+                    },
+                ],
             },
         ],
     },
@@ -232,12 +393,12 @@ COMMANDS = [
                         "help": "身份令牌",
                     },
                     {
-                        "name": "--friend-id",
+                        "name": "--friend-username",
                         "short": "-f",
-                        "dest": "friend_id",
-                        "type": int,
+                        "dest": "friend_username",
+                        "type": str,
                         "required": True,
-                        "help": "好友ID",
+                        "help": "好友用户名",
                     },
                 ],
             },
@@ -247,7 +408,7 @@ COMMANDS = [
 
 
 def build_parser(
-    parser: argparse.ArgumentParser, commands: List[Dict[str, Any]]
+        parser: argparse.ArgumentParser, commands: List[Dict[str, Any]]
 ) -> None:
     """递归构建 argparse 子命令解析器"""
     subparsers = parser.add_subparsers(title="子命令", dest="subcommand", required=True)
@@ -268,6 +429,8 @@ def build_parser(
                     "type": arg.get("type", str),
                     "help": arg.get("help", ""),
                 }
+                if "choices" in arg:
+                    add_kwargs["choices"] = arg["choices"]
                 if arg.get("required", False):
                     add_kwargs["required"] = True
                 else:
@@ -284,17 +447,24 @@ def build_parser(
 def print_response(resp) -> None:
     """尝试用 rich 美观地打印响应"""
     try:
-        rich.inspect(resp)
         if hasattr(resp, "json") and callable(resp.json):
             try:
                 data = resp.json()
+                if resp.status_code == 200:
+                    rich.print("[green]成功:[/green]")
+                else:
+                    rich.print(f"[red]错误 (状态码 {resp.status_code}):[/red]")
                 rich.print(data)
             except Exception:
-                rich.print(f"状态码: {resp.status_code}, 响应体: {resp.text}")
+                if resp.status_code == 200:
+                    rich.print("[green]成功:[/green]")
+                else:
+                    rich.print(f"[red]错误 (状态码 {resp.status_code}):[/red]")
+                rich.print(f"响应体: {resp.text}")
         else:
             rich.print(resp)
     except Exception as e:
-        rich.print(f"打印响应时出错: {e}")
+        rich.print(f"[red]打印响应时出错: {e}[/red]")
         rich.print(resp)
 
 
@@ -310,6 +480,9 @@ if __name__ == "__main__":
         kwargs = {
             k: v for k, v in vars(args).items() if k not in ("func", "subcommand")
         }
+        # 过滤掉值为None的参数（未提供的可选参数）
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
         response = func(**kwargs)
         print_response(response)
     except Exception as e:

@@ -56,6 +56,119 @@
 - `401 Unauthorized`：Token 无效或过期[返回体中有error对象]
 - `404 Not Found`：用户不存在[返回体中有error对象]
 
+### 获取用户详细信息 `GET /users/<username>?token=<token>`
+**路径参数**：`username` - 要查询的用户名  
+**查询参数**：`token` - 当前登录用户的token  
+
+**响应（自己或好友）**
+- `200 OK`：返回用户详细信息
+  ```json
+  {
+    "username": "alice",
+    "created_at": "2024-01-01 12:00:00",
+    "nickname": "爱丽丝",
+    "birthday": "1995-05-20",
+    "gender": "female",
+    "avatar": "base64_encoded_image_data",
+    "email": "alice@example.com",
+    "phone": "13800138000",
+    "bio": "Hello, I'm Alice!",
+    "updated_at": "2024-01-02 10:30:00"
+  }
+  ```
+
+**响应（非好友）**
+- `403 Forbidden`：只有好友才能查看详细信息
+  ```json
+  { "error": "只有好友才能查看详细信息" }
+  ```
+
+**状态码**
+- `200 OK`：成功
+- `400 Bad Request`：缺少token参数[返回体中有error对象]
+- `401 Unauthorized`：token无效或已过期[返回体中有error对象]
+- `403 Forbidden`：无权限查看（非好友）[返回体中有error对象]
+- `404 Not Found`：用户不存在[返回体中有error对象]
+
+### 更新用户资料 `PUT /users/<username>/profile`
+**路径参数**：`username` - 要更新资料的用户名  
+
+**请求体**（所有字段均为可选）
+```json
+{
+  "token": "user_token_here",
+  "nickname": "新昵称",
+  "birthday": "1995-05-20",
+  "gender": "male",
+  "avatar": "base64_encoded_image_data",
+  "email": "newemail@example.com",
+  "phone": "13800138000",
+  "bio": "个人简介"
+}
+```
+
+**响应**
+- `200 OK`：资料更新成功
+  ```json
+  { "message": "资料更新成功" }
+  ```
+
+**状态码**
+- `200 OK`：成功
+- `400 Bad Request`：请求体不是JSON或没有提供更新字段[返回体中有error对象]
+- `401 Unauthorized`：token无效或已过期[返回体中有error对象]
+- `403 Forbidden`：只能更新自己的资料[返回体中有error对象]
+
+### 修改用户名 `PUT /users/<old_username>/rename`
+**路径参数**：`old_username` - 当前用户名  
+
+**请求体**
+```json
+{
+  "token": "user_token_here",
+  "new_username": "new_username123"
+}
+```
+
+**响应**
+- `200 OK`：用户名修改成功
+  ```json
+  {
+    "message": "用户名修改成功",
+    "new_username": "new_username123"
+  }
+  ```
+
+**状态码**
+- `200 OK`：成功
+- `400 Bad Request`：缺少token或新用户名，或用户名长度小于3[返回体中有error对象]
+- `401 Unauthorized`：token无效或已过期[返回体中有error对象]
+- `403 Forbidden`：只能修改自己的用户名[返回体中有error对象]
+- `409 Conflict`：新用户名已存在[返回体中有error对象]
+- `500 Internal Server Error`：服务器内部错误[返回体中有error对象]
+
+### 搜索用户 `GET /users/search?q=<query>&token=<token>`
+**查询参数**
+- `q`：搜索关键词（至少2个字符）
+- `token`：当前登录用户的token
+
+**响应**
+- `200 OK`：返回匹配的用户名列表
+  ```json
+  {
+    "users": [
+      "alice123",
+      "alice_smith",
+      "alice_wonder"
+    ]
+  }
+  ```
+
+**状态码**
+- `200 OK`：成功
+- `400 Bad Request`：缺少token参数或搜索词长度小于2[返回体中有error对象]
+- `401 Unauthorized`：token无效或已过期[返回体中有error对象]
+
 ### 登出 `DELETE /sessions`
 **请求体**
 ```json
@@ -99,7 +212,6 @@
     "requests": [
       {
         "request_id": 1,
-        "from_user_id": 2,
         "from_username": "bob",
         "message": "加个好友吧",
         "created_at": "2024-01-01 12:00:00"
@@ -118,7 +230,6 @@
     "requests": [
       {
         "request_id": 1,
-        "to_user_id": 2,
         "to_username": "bob",
         "message": "加个好友吧",
         "status": "pending",  // pending, accepted, rejected
@@ -171,8 +282,8 @@
   {
     "friends": [
       {
-        "user_id": 2,
         "username": "bob",
+        "nickname": "鲍勃",
         "created_at": "2024-01-01 12:00:00"
       }
     ]
@@ -180,8 +291,8 @@
   ```
 - `401 Unauthorized`：token无效[返回体中有error对象]
 
-#### 删除好友 `DELETE /friends/<friend_id>`
-**路径参数**：`friend_id` - 好友的用户ID  
+#### 删除好友 `DELETE /friends/<friend_username>`
+**路径参数**：`friend_username` - 好友的用户名  
 **请求体**
 ```json
 {
@@ -243,3 +354,16 @@
 - `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 - `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 - UNIQUE(from_user_id, to_user_id)
+
+### user_profile.db（新增）
+**user_profiles表**
+- `username` TEXT PRIMARY KEY
+- `nickname` TEXT
+- `birthday` TEXT
+- `gender` TEXT
+- `avatar` TEXT
+- `email` TEXT
+- `phone` TEXT
+- `bio` TEXT
+- `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE

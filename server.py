@@ -1,7 +1,9 @@
 import base64
+import hashlib
 import json
 import logging
 import os
+import secrets
 import sqlite3
 import uuid
 from datetime import datetime
@@ -17,7 +19,7 @@ __license__ = """Apache License 2.0"""
 
 app = Flask(__name__)
 
-token_map: dict = {}
+token_map: dict = {}  # token -> username
 api_version = "v1"
 ph = PasswordHasher()
 
@@ -37,9 +39,9 @@ def init_login_db() -> None:
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            username TEXT PRIMARY KEY,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
     conn.commit()
@@ -53,10 +55,10 @@ def init_friend_db() -> None:
     c.execute("""
         CREATE TABLE IF NOT EXISTS friends (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            friend_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            friend_username TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, friend_id)
+            UNIQUE(username, friend_username)
         )
     """)
     conn.commit()
@@ -70,13 +72,35 @@ def init_friend_requests_db() -> None:
     c.execute("""
         CREATE TABLE IF NOT EXISTS friend_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            from_user_id INTEGER NOT NULL,
-            to_user_id INTEGER NOT NULL,
+            from_username TEXT NOT NULL,
+            to_username TEXT NOT NULL,
             status TEXT DEFAULT 'pending',  -- pending, accepted, rejected
             message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(from_user_id, to_user_id)
+            UNIQUE(from_username, to_username)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def init_user_profile_db() -> None:
+    """初始化用户资料数据库"""
+    conn = sqlite3.connect("user_profile.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            username TEXT PRIMARY KEY,
+            nickname TEXT,
+            birthday TEXT,
+            gender TEXT,
+            avatar TEXT,
+            email TEXT,
+            phone TEXT,
+            bio TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
         )
     """)
     conn.commit()
@@ -86,6 +110,7 @@ def init_friend_requests_db() -> None:
 init_friend_db()
 init_login_db()
 init_friend_requests_db()
+init_user_profile_db()
 
 
 def create_rsa_key() -> None:
@@ -94,7 +119,7 @@ def create_rsa_key() -> None:
     """
     logger.info("正在检测是否有公私钥中...")
     if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists(
-        "PRIVATE_KEY.chatting"
+            "PRIVATE_KEY.chatting"
     ):
         logger.info("未检测到有公钥和私钥，正在自动生成。")
         public_key, private_key = rsa.newkeys(2048 * 2)
@@ -142,46 +167,46 @@ def get_friend_requests_db() -> sqlite3.Connection:
     return conn
 
 
+def get_user_profile_db() -> sqlite3.Connection:
+    """
+    获取user_profile.db的sqlite3 Connection 对象
+    """
+    conn = sqlite3.connect("user_profile.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 # ---------- 辅助函数 ----------
 def verify_token(token: str) -> tuple:
     """
-    验证token并返回用户名和用户信息
-    返回: (is_valid, username, user_id)
+    验证token并返回用户名
+    返回: (is_valid, username)
     """
     if token_map.get(token) is None:
-        return False, None, None
+        return False, None
 
     username = token_map.get(token)
     conn = get_login_db()
     user = conn.execute(
-        "SELECT id, username FROM users WHERE username = ?", (username,)
+        "SELECT username FROM users WHERE username = ?", (username,)
     ).fetchone()
     conn.close()
 
     if user:
-        return True, username, user["id"]
+        return True, username
     else:
-        return False, None, None
+        return False, None
 
 
-def get_user_id_by_username(username: str) -> int:
-    """通过用户名获取用户ID"""
-    conn = get_login_db()
-    user = conn.execute(
-        "SELECT id FROM users WHERE username = ?", (username,)
+def are_friends(username1: str, username2: str) -> bool:
+    """检查两个用户是否为好友"""
+    conn = get_friend_db()
+    friend = conn.execute(
+        "SELECT id FROM friends WHERE username = ? AND friend_username = ?",
+        (username1, username2),
     ).fetchone()
     conn.close()
-    return user["id"] if user else None  # type: ignore[return-value]
-
-
-def get_username_by_id(user_id: int) -> str:
-    """通过用户ID获取用户名"""
-    conn = get_login_db()
-    user = conn.execute(
-        "SELECT username FROM users WHERE id = ?", (user_id,)
-    ).fetchone()
-    conn.close()
-    return user["username"] if user else None  # type: ignore[return-value]
+    return friend is not None
 
 
 @app.route(f"/api/{api_version}/users", methods=["POST"])
@@ -205,11 +230,22 @@ def create_user():
     password = ph.hash(password).replace(" ", "")
     conn = get_login_db()
     try:
+        # 插入用户
         conn.execute(
             "INSERT INTO users (username, password) VALUES (?, ?)",
             (username, password),
         )
         conn.commit()
+
+        # 创建用户资料
+        profile_conn = get_user_profile_db()
+        profile_conn.execute(
+            "INSERT INTO user_profiles (username) VALUES (?)",
+            (username,),
+        )
+        profile_conn.commit()
+        profile_conn.close()
+
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({"error": "用户名已存在"}), 409
@@ -218,36 +254,299 @@ def create_user():
     return jsonify({"message": "用户创建成功"}), 201
 
 
-@app.route(f"/api/{api_version}/users/<token>", methods=["GET"])
-def get_user(token: str):
+@app.route(f"/api/{api_version}/users/<username>", methods=["GET"])
+def get_user(username: str):
     """
-    还在开发中的api 暂无文档
+    获取用户信息（仅对好友开放）
     """
-    if token_map.get(token) is None:
-        return jsonify({"error": "token 错误"}), 401
+    token = request.args.get("token")
+    if not token:
+        return jsonify({"error": "缺少token参数"}), 400
+
+    is_valid, current_user = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 检查是否是自己
+    if current_user == username:
+        # 可以查看自己的信息
+        conn = get_login_db()
+        user = conn.execute(
+            "SELECT username, created_at FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        conn.close()
+
+        if not user:
+            return jsonify({"error": "用户不存在"}), 404
+
+        # 获取用户资料
+        profile_conn = get_user_profile_db()
+        profile = profile_conn.execute(
+            "SELECT * FROM user_profiles WHERE username = ?", (username,)
+        ).fetchone()
+        profile_conn.close()
+
+        result = dict(user)
+        if profile:
+            # 移除username避免重复
+            profile_dict = dict(profile)
+            profile_dict.pop('username', None)
+            result.update(profile_dict)
+
+        return jsonify(result), 200
     else:
-        username = token_map.get(token)
-    conn = get_login_db()
-    user = conn.execute(
-        "SELECT id, username FROM users WHERE username = ?", (username,)
-    ).fetchone()
+        # 检查是否为好友
+        if are_friends(current_user, username):
+            conn = get_login_db()
+            user = conn.execute(
+                "SELECT username, created_at FROM users WHERE username = ?", (username,)
+            ).fetchone()
+            conn.close()
+
+            if not user:
+                return jsonify({"error": "用户不存在"}), 404
+
+            # 获取用户资料
+            profile_conn = get_user_profile_db()
+            profile = profile_conn.execute(
+                "SELECT * FROM user_profiles WHERE username = ?", (username,)
+            ).fetchone()
+            profile_conn.close()
+
+            result = dict(user)
+            if profile:
+                # 移除username避免重复
+                profile_dict = dict(profile)
+                profile_dict.pop('username', None)
+                result.update(profile_dict)
+
+            return jsonify(result), 200
+        else:
+            return jsonify({"error": "只有好友才能查看详细信息"}), 403
+
+
+@app.route(f"/api/{api_version}/users/<username>/profile", methods=["PUT"])
+def update_user_profile(username: str):
+    """
+    更新用户资料
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体必须为JSON"}), 400
+
+    token = data.get("token")
+    if not token:
+        return jsonify({"error": "缺少token参数"}), 400
+
+    is_valid, current_user = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 只能更新自己的资料
+    if current_user != username:
+        return jsonify({"error": "只能更新自己的资料"}), 403
+
+    # 可更新的字段
+    allowed_fields = ['nickname', 'birthday', 'gender', 'avatar', 'email', 'phone', 'bio']
+    update_data = {}
+    for field in allowed_fields:
+        if field in data:
+            update_data[field] = data[field]
+
+    if not update_data:
+        return jsonify({"error": "没有提供要更新的字段"}), 400
+
+    # 构建更新语句
+    set_clause = ", ".join([f"{field} = ?" for field in update_data.keys()])
+    set_clause += ", updated_at = CURRENT_TIMESTAMP"
+    values = list(update_data.values())
+    values.append(username)
+
+    conn = get_user_profile_db()
+    conn.execute(
+        f"UPDATE user_profiles SET {set_clause} WHERE username = ?",
+        values
+    )
+    conn.commit()
     conn.close()
-    if user:
-        return jsonify(dict(user))
-    else:
-        return jsonify({"error": "用户不存在"}), 404
+
+    return jsonify({"message": "资料更新成功"}), 200
 
 
-def random_token() -> str:
+@app.route(f"/api/{api_version}/users/<old_username>/rename", methods=["PUT"])
+def rename_user(old_username: str):
     """
-    随机一个token,
-    如果这个token已经被占用，就会重新 生成一个，直到生成一个未被占用的token
-    构造函数：token = str(uuid.uuid5(uuid.uuid4(),str(uuid.uuid4())))
+    修改用户名
     """
-    while True:
-        token = str(uuid.uuid5(uuid.uuid4(), str(uuid.uuid4())))
-        if token_map.get(token) is None:
-            return str(token)
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体必须为JSON"}), 400
+
+    token = data.get("token")
+    new_username = data.get("new_username")
+
+    if not token or not new_username:
+        return jsonify({"error": "缺少token或新用户名"}), 400
+
+    is_valid, current_user = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 只能修改自己的用户名
+    if current_user != old_username:
+        return jsonify({"error": "只能修改自己的用户名"}), 403
+
+    # 验证新用户名格式
+    if not new_username or len(new_username) < 3:
+        return jsonify({"error": "用户名至少需要3个字符"}), 400
+
+    # 开始事务处理（需要更新多个数据库）
+    conn_login = get_login_db()
+    conn_friend = get_friend_db()
+    conn_requests = get_friend_requests_db()
+    conn_profile = get_user_profile_db()
+
+    try:
+        # 检查新用户名是否已存在
+        existing = conn_login.execute(
+            "SELECT username FROM users WHERE username = ?", (new_username,)
+        ).fetchone()
+        if existing:
+            return jsonify({"error": "用户名已存在"}), 409
+
+        # 开始事务
+        conn_login.execute("BEGIN TRANSACTION")
+        conn_friend.execute("BEGIN TRANSACTION")
+        conn_requests.execute("BEGIN TRANSACTION")
+        conn_profile.execute("BEGIN TRANSACTION")
+
+        # 更新login.db
+        conn_login.execute(
+            "UPDATE users SET username = ? WHERE username = ?",
+            (new_username, old_username)
+        )
+
+        # 更新user_profile.db
+        conn_profile.execute(
+            "UPDATE user_profiles SET username = ? WHERE username = ?",
+            (new_username, old_username)
+        )
+
+        # 更新friends.db (作为用户)
+        conn_friend.execute(
+            "UPDATE friends SET username = ? WHERE username = ?",
+            (new_username, old_username)
+        )
+        # 更新friends.db (作为好友)
+        conn_friend.execute(
+            "UPDATE friends SET friend_username = ? WHERE friend_username = ?",
+            (new_username, old_username)
+        )
+
+        # 更新friend_requests.db (作为发送者)
+        conn_requests.execute(
+            "UPDATE friend_requests SET from_username = ? WHERE from_username = ?",
+            (new_username, old_username)
+        )
+        # 更新friend_requests.db (作为接收者)
+        conn_requests.execute(
+            "UPDATE friend_requests SET to_username = ? WHERE to_username = ?",
+            (new_username, old_username)
+        )
+
+        # 更新token_map
+        for token, username in list(token_map.items()):
+            if username == old_username:
+                token_map[token] = new_username
+
+        # 提交所有事务
+        conn_login.commit()
+        conn_friend.commit()
+        conn_requests.commit()
+        conn_profile.commit()
+
+    except Exception as e:
+        # 回滚所有事务
+        conn_login.rollback()
+        conn_friend.rollback()
+        conn_requests.rollback()
+        conn_profile.rollback()
+        logger.error(f"修改用户名失败: {str(e)}")
+        return jsonify({"error": "修改用户名失败"}), 500
+    finally:
+        conn_login.close()
+        conn_friend.close()
+        conn_requests.close()
+        conn_profile.close()
+
+    return jsonify({
+        "message": "用户名修改成功",
+        "new_username": new_username
+    }), 200
+
+
+@app.route(f"/api/{api_version}/users/search", methods=["GET"])
+def search_users():
+    """
+    搜索用户，返回用户名列表
+    """
+    query = request.args.get("q", "")
+    token = request.args.get("token")
+
+    if not token:
+        return jsonify({"error": "缺少token参数"}), 400
+
+    is_valid, current_user = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    if not query or len(query) < 2:
+        return jsonify({"error": "搜索关键词至少需要2个字符"}), 400
+
+    conn = get_login_db()
+    # 搜索包含查询词的用户名，排除自己
+    users = conn.execute(
+        "SELECT username FROM users WHERE username LIKE ? AND username != ? LIMIT 50",
+        (f"%{query}%", current_user)
+    ).fetchall()
+    conn.close()
+
+    result = [user["username"] for user in users]
+    return jsonify({"users": result}), 200
+
+
+def random_token(length: int = 1024, iterations: int = 100000) -> str:
+    """
+    生成一个长度较长、计算速度较慢的随机Token。
+
+    :param length:  Token的字符长度（必须为偶数，若为奇数则自动加1）
+    :param iterations: PBKDF2迭代次数，控制计算耗时，默认为100000
+    :return: 十六进制字符串表示的Token
+    """
+    key:bytes = b""
+    while key.hex() in list(token_map.keys()) or key == b"":
+        # 确保长度为偶数（十六进制编码需要）
+        if length % 2 != 0:
+            length += 1
+
+        # 计算需要的字节数（十六进制每字符对应4比特，即2字符=1字节）
+        byte_len = length // 2
+
+        # 生成随机盐和密码（种子）
+        salt = secrets.token_bytes(16)          # 16字节盐
+        password = secrets.token_bytes(32)       # 32字节密码材料
+
+        # 使用PBKDF2生成指定长度的密钥
+        key = hashlib.pbkdf2_hmac(
+            'sha256',
+            password,
+            salt,
+            iterations,
+            dklen=byte_len
+        )
+
+    # 返回十六进制编码的Token
+    return key.hex()
 
 
 # ----- 资源：会话 (Session) -----
@@ -329,24 +628,29 @@ def send_friend_request():
         return jsonify({"error": "token和好友用户名不能为空"}), 400
 
     # 验证token
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
-    # 获取好友ID
-    friend_id = get_user_id_by_username(friend_username)
-    if not friend_id:
+    # 验证好友用户是否存在
+    conn_login = get_login_db()
+    friend_exists = conn_login.execute(
+        "SELECT username FROM users WHERE username = ?", (friend_username,)
+    ).fetchone()
+    conn_login.close()
+
+    if not friend_exists:
         return jsonify({"error": "好友用户不存在"}), 404
 
     # 不能添加自己为好友
-    if user_id == friend_id:
+    if username == friend_username:
         return jsonify({"error": "不能添加自己为好友"}), 400
 
     # 检查是否已经是好友
     conn = get_friend_db()
     existing_friend = conn.execute(
-        "SELECT id FROM friends WHERE user_id = ? AND friend_id = ?",
-        (user_id, friend_id),
+        "SELECT id FROM friends WHERE username = ? AND friend_username = ?",
+        (username, friend_username),
     ).fetchone()
     if existing_friend:
         conn.close()
@@ -356,8 +660,8 @@ def send_friend_request():
     conn_requests = get_friend_requests_db()
     existing_request = conn_requests.execute(
         """SELECT id, status FROM friend_requests 
-           WHERE from_user_id = ? AND to_user_id = ?""",
-        (user_id, friend_id),
+           WHERE from_username = ? AND to_username = ?""",
+        (username, friend_username),
     ).fetchone()
 
     if existing_request:
@@ -379,9 +683,9 @@ def send_friend_request():
     # 创建新的好友请求
     try:
         conn_requests.execute(
-            """INSERT INTO friend_requests (from_user_id, to_user_id, message)
+            """INSERT INTO friend_requests (from_username, to_username, message)
                VALUES (?, ?, ?)""",
-            (user_id, friend_id, message),
+            (username, friend_username, message),
         )
         conn_requests.commit()
     except sqlite3.IntegrityError:
@@ -398,39 +702,31 @@ def get_incoming_requests():
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
     # 从 friend_requests.db 获取待处理的请求列表
     conn_req = get_friend_requests_db()
     requests = conn_req.execute(
-        """SELECT id, from_user_id, message, status, created_at
+        """SELECT id, from_username, message, status, created_at
            FROM friend_requests
-           WHERE to_user_id = ? AND status = 'pending'
+           WHERE to_username = ? AND status = 'pending'
            ORDER BY created_at DESC""",
-        (user_id,),
+        (username,),
     ).fetchall()
     conn_req.close()
 
-    # 从 login.db 获取每个请求发送者的用户名
     result = []
-    conn_login = get_login_db()
     for req in requests:
-        from_user = conn_login.execute(
-            "SELECT username FROM users WHERE id = ?", (req["from_user_id"],)
-        ).fetchone()
-        if from_user:
-            result.append(
-                {
-                    "request_id": req["id"],
-                    "from_user_id": req["from_user_id"],
-                    "from_username": from_user["username"],
-                    "message": req["message"],
-                    "created_at": req["created_at"],
-                }
-            )
-    conn_login.close()
+        result.append(
+            {
+                "request_id": req["id"],
+                "from_username": req["from_username"],
+                "message": req["message"],
+                "created_at": req["created_at"],
+            }
+        )
 
     return jsonify({"requests": result}), 200
 
@@ -441,40 +737,32 @@ def get_outgoing_requests():
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
     # 从 friend_requests.db 获取发出的请求列表
     conn_req = get_friend_requests_db()
     requests = conn_req.execute(
-        """SELECT id, to_user_id, message, status, created_at
+        """SELECT id, to_username, message, status, created_at
            FROM friend_requests
-           WHERE from_user_id = ?
+           WHERE from_username = ?
            ORDER BY created_at DESC""",
-        (user_id,),
+        (username,),
     ).fetchall()
     conn_req.close()
 
-    # 从 login.db 获取每个接收者的用户名
     result = []
-    conn_login = get_login_db()
     for req in requests:
-        to_user = conn_login.execute(
-            "SELECT username FROM users WHERE id = ?", (req["to_user_id"],)
-        ).fetchone()
-        if to_user:
-            result.append(
-                {
-                    "request_id": req["id"],
-                    "to_user_id": req["to_user_id"],
-                    "to_username": to_user["username"],
-                    "message": req["message"],
-                    "status": req["status"],
-                    "created_at": req["created_at"],
-                }
-            )
-    conn_login.close()
+        result.append(
+            {
+                "request_id": req["id"],
+                "to_username": req["to_username"],
+                "message": req["message"],
+                "status": req["status"],
+                "created_at": req["created_at"],
+            }
+        )
 
     return jsonify({"requests": result}), 200
 
@@ -498,7 +786,7 @@ def accept_friend_request(request_id):
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
@@ -514,11 +802,11 @@ def accept_friend_request(request_id):
         return jsonify({"error": "好友请求不存在或已被处理"}), 404
 
     # 验证当前用户是请求的接收者
-    if friend_request["to_user_id"] != user_id:
+    if friend_request["to_username"] != username:
         conn_requests.close()
         return jsonify({"error": "无权操作此好友请求"}), 403
 
-    from_user_id = friend_request["from_user_id"]
+    from_username = friend_request["from_username"]
 
     # 开始事务处理
     try:
@@ -536,14 +824,14 @@ def accept_friend_request(request_id):
 
         # 添加 A -> B 的关系
         conn_friends.execute(
-            "INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)",
-            (user_id, from_user_id),
+            "INSERT OR IGNORE INTO friends (username, friend_username) VALUES (?, ?)",
+            (username, from_username),
         )
 
         # 添加 B -> A 的关系
         conn_friends.execute(
-            "INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)",
-            (from_user_id, user_id),
+            "INSERT OR IGNORE INTO friends (username, friend_username) VALUES (?, ?)",
+            (from_username, username),
         )
 
         conn_friends.commit()
@@ -579,7 +867,7 @@ def reject_friend_request(request_id):
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
@@ -593,7 +881,7 @@ def reject_friend_request(request_id):
         conn_requests.close()
         return jsonify({"error": "好友请求不存在或已被处理"}), 404
 
-    if friend_request["to_user_id"] != user_id:
+    if friend_request["to_username"] != username:
         conn_requests.close()
         return jsonify({"error": "无权操作此好友请求"}), 403
 
@@ -615,43 +903,45 @@ def get_friends_list():
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
-    # 从 friends.db 获取好友ID列表
+    # 从 friends.db 获取好友列表
     conn_friend = get_friend_db()
     friend_rows = conn_friend.execute(
-        "SELECT friend_id, created_at FROM friends WHERE user_id = ?", (user_id,)
+        "SELECT friend_username, created_at FROM friends WHERE username = ?", (username,)
     ).fetchall()
     conn_friend.close()
 
-    # 从 login.db 获取每个好友的用户名
+    # 获取每个好友的资料信息（可选）
     result = []
-    conn_login = get_login_db()
+    conn_profile = get_user_profile_db()
     for row in friend_rows:
-        friend_id = row["friend_id"]
-        user = conn_login.execute(
-            "SELECT username FROM users WHERE id = ?", (friend_id,)
+        friend_info = {
+            "username": row["friend_username"],
+            "created_at": row["created_at"],
+        }
+
+        # 获取好友昵称（如果有）
+        profile = conn_profile.execute(
+            "SELECT nickname FROM user_profiles WHERE username = ?",
+            (row["friend_username"],)
         ).fetchone()
-        if user:
-            result.append(
-                {
-                    "user_id": friend_id,
-                    "username": user["username"],
-                    "created_at": row["created_at"],
-                }
-            )
-    conn_login.close()
+        if profile and profile["nickname"]:
+            friend_info["nickname"] = profile["nickname"]
+
+        result.append(friend_info)
+    conn_profile.close()
 
     return jsonify({"friends": result}), 200
 
 
-@app.route(f"/api/{api_version}/friends/<int:friend_id>", methods=["DELETE"])
-def remove_friend(friend_id):
+@app.route(f"/api/{api_version}/friends/<friend_username>", methods=["DELETE"])
+def remove_friend(friend_username):
     """
     删除好友
-    API DELETE /friends/<friend_id>
+    API DELETE /friends/<friend_username>
     请求体: {
         "token": "用户token"
     }
@@ -664,15 +954,15 @@ def remove_friend(friend_id):
     if not token:
         return jsonify({"error": "缺少token参数"}), 400
 
-    is_valid, username, user_id = verify_token(token)
+    is_valid, username = verify_token(token)
     if not is_valid:
         return jsonify({"error": "token无效或已过期"}), 401
 
     conn = get_friend_db()
     # 删除双向好友关系
     conn.execute(
-        "DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
-        (user_id, friend_id, friend_id, user_id),
+        "DELETE FROM friends WHERE (username = ? AND friend_username = ?) OR (username = ? AND friend_username = ?)",
+        (username, friend_username, friend_username, username),
     )
     conn.commit()
     conn.close()
