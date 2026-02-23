@@ -506,7 +506,7 @@ def search_users():
     conn = get_login_db()
     # 搜索包含查询词的用户名，排除自己
     users = conn.execute(
-        "SELECT username FROM users WHERE username LIKE ? AND username != ? LIMIT 50",
+        "SELECT username FROM users WHERE username LIKE ? AND username != ?",
         (f"%{query}%", current_user)
     ).fetchall()
     conn.close()

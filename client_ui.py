@@ -2,7 +2,7 @@ import pickle
 import sys
 from plistlib import load
 
-import search_friends_ui
+import search_users_ui
 from PySide6.QtCore import QFile, QIODevice, QStringListModel
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QLineEdit,
@@ -23,18 +23,24 @@ class RegLogWindow(QMainWindow):
         self.user_name = ""
         self.token = ""
 
-class SearchFriendWindow(QDialog):
+class SearchUsersWindow(QDialog):
     def __init__(self, token):
         super().__init__()
         self.token = token
 
-        search_friends_ui.Ui_Dialog().setupUi(self)
+        search_users_ui.Ui_Dialog().setupUi(self)
+        self.search_button = self.findChild(QFrame, "frame_2").findChild(QToolButton, "toolButton")
+        self.search_button.clicked.connect(self.search)
+
+        self.line_edit = self.findChild(QFrame, "frame_2").findChild(QLineEdit, "lineEdit")
+        self.listView = self.findChild(QListView, "listView")
 
 
     def search(self):
-        r = search_users(self.token, self.input_user_name.text())
+        r = search_users(self.token, self.line_edit.text())
+        self.listView.setModel(QStringListModel([]))
         if r.status_code == 200:
-            QMessageBox.information(None, "搜索", f"用户信息:\n用户名: {r.json().get('username')}\n用户id: {r.json().get('user_id')}\n注册时间: {r.json().get('created_at')}")
+            self.listView.setModel(QStringListModel(r.json()["users"]))
         elif r.status_code != 200 and r.status_code != -1:
             try:
                 QMessageBox.warning(None, "搜索", f"发生错误:{r.json()["error"]}")
@@ -153,18 +159,18 @@ class ChattingWindow(QMainWindow):
                              .findChild(QListView, "friends_list"))
         self.friends_list.doubleClicked.connect(self.show_info)
 
-        self.search_friend_button = (self.window
+        self.add_friend_button = (self.window
                                      .findChild(QDockWidget, "dockWidget_4")
                                      .findChild(QWidget, "dockWidgetContents_5")
                                      .findChild(QFrame, "frame_2")
-                                     .findChild(QToolButton, "search")
+                                     .findChild(QToolButton, "add_friends")
                                      )
-        self.search_friend_button.clicked.connect(self.show_search_friend_window)
+        self.add_friend_button.clicked.connect(self.show_search_users_window)
 
 
-    def show_search_friend_window(self):
-        search_friend_window = SearchFriendWindow(self.token)
-        search_friend_window.exec()
+    def show_search_users_window(self):
+        search_users_window = SearchUsersWindow(self.token)
+        search_users_window.exec()
 
 
     def reload_friends_list(self) ->  list[str]:
