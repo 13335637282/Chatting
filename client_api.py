@@ -268,6 +268,7 @@ def get_user_info(token: str, username: str) -> Response:
         rep.status_code = -1
         return rep
 
+
 def update_user_profile(token: str, username: str, **kwargs) -> Response:
     """
     更新用户资料
@@ -322,10 +323,7 @@ def rename_user(token: str, old_username: str, new_username: str) -> Response:
     """
     try:
         url = f"{BASE_URL}/users/{old_username}/rename"
-        payload = {
-            "token": token,
-            "new_username": new_username
-        }
+        payload = {"token": token, "new_username": new_username}
         logger.debug(f"[修改用户名] {old_username} -> {new_username}")
         resp: Response = requests.put(url, json=payload)
         logger.debug(f"[修改用户名] -> 状态 {resp.status_code}, 响应: {resp.json()}")
@@ -355,14 +353,12 @@ def search_users(token: str, query: str) -> Response:
     """
     try:
         url = f"{BASE_URL}/users/search"
-        params = {
-            "token": token,
-            "q": query
-        }
+        params = {"token": token, "q": query}
         logger.debug(f"[搜索用户] 关键词: {query}")
         resp: Response = requests.get(url, params=params)
         logger.debug(
-            f"[搜索用户] -> 状态 {resp.status_code}, 找到: {len(resp.json().get('users', [])) if resp.status_code == 200 else 0} 个用户")
+            f"[搜索用户] -> 状态 {resp.status_code}, 找到: {len(resp.json().get('users', [])) if resp.status_code == 200 else 0} 个用户"
+        )
         return resp
     except Exception:
         rep: Response = Response()

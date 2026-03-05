@@ -10,8 +10,7 @@ from datetime import datetime
 
 import rsa
 from argon2 import PasswordHasher
-from argon2.exceptions import (InvalidHashError, VerificationError,
-                               VerifyMismatchError)
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from flask import Flask, jsonify, request
 from rsa import PrivateKey
 
@@ -119,7 +118,7 @@ def create_rsa_key() -> None:
     """
     logger.info("正在检测是否有公私钥中...")
     if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists(
-            "PRIVATE_KEY.chatting"
+        "PRIVATE_KEY.chatting"
     ):
         logger.info("未检测到有公钥和私钥，正在自动生成。")
         public_key, private_key = rsa.newkeys(2048 * 2)
@@ -290,7 +289,7 @@ def get_user(username: str):
         if profile:
             # 移除username避免重复
             profile_dict = dict(profile)
-            profile_dict.pop('username', None)
+            profile_dict.pop("username", None)
             result.update(profile_dict)
 
         return jsonify(result), 200
@@ -317,7 +316,7 @@ def get_user(username: str):
             if profile:
                 # 移除username避免重复
                 profile_dict = dict(profile)
-                profile_dict.pop('username', None)
+                profile_dict.pop("username", None)
                 result.update(profile_dict)
 
             return jsonify(result), 200
@@ -347,7 +346,15 @@ def update_user_profile(username: str):
         return jsonify({"error": "只能更新自己的资料"}), 403
 
     # 可更新的字段
-    allowed_fields = ['nickname', 'birthday', 'gender', 'avatar', 'email', 'phone', 'bio']
+    allowed_fields = [
+        "nickname",
+        "birthday",
+        "gender",
+        "avatar",
+        "email",
+        "phone",
+        "bio",
+    ]
     update_data = {}
     for field in allowed_fields:
         if field in data:
@@ -363,10 +370,7 @@ def update_user_profile(username: str):
     values.append(username)
 
     conn = get_user_profile_db()
-    conn.execute(
-        f"UPDATE user_profiles SET {set_clause} WHERE username = ?",
-        values
-    )
+    conn.execute(f"UPDATE user_profiles SET {set_clause} WHERE username = ?", values)
     conn.commit()
     conn.close()
 
@@ -423,35 +427,35 @@ def rename_user(old_username: str):
         # 更新login.db
         conn_login.execute(
             "UPDATE users SET username = ? WHERE username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
 
         # 更新user_profile.db
         conn_profile.execute(
             "UPDATE user_profiles SET username = ? WHERE username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
 
         # 更新friends.db (作为用户)
         conn_friend.execute(
             "UPDATE friends SET username = ? WHERE username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
         # 更新friends.db (作为好友)
         conn_friend.execute(
             "UPDATE friends SET friend_username = ? WHERE friend_username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
 
         # 更新friend_requests.db (作为发送者)
         conn_requests.execute(
             "UPDATE friend_requests SET from_username = ? WHERE from_username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
         # 更新friend_requests.db (作为接收者)
         conn_requests.execute(
             "UPDATE friend_requests SET to_username = ? WHERE to_username = ?",
-            (new_username, old_username)
+            (new_username, old_username),
         )
 
         # 更新token_map
@@ -467,8 +471,8 @@ def rename_user(old_username: str):
 
     except Exception as e:
         # 回滚所有事务
-        conn_login.rollback()
-        conn_friend.rollback()
+        conn_login.rollback()  # Get OUT!
+        conn_friend.rollback()  # 朋友？ 滚回去！
         conn_requests.rollback()
         conn_profile.rollback()
         logger.error(f"修改用户名失败: {str(e)}")
@@ -479,10 +483,7 @@ def rename_user(old_username: str):
         conn_requests.close()
         conn_profile.close()
 
-    return jsonify({
-        "message": "用户名修改成功",
-        "new_username": new_username
-    }), 200
+    return jsonify({"message": "用户名修改成功", "new_username": new_username}), 200
 
 
 @app.route(f"/api/{api_version}/users/search", methods=["GET"])
@@ -507,7 +508,7 @@ def search_users():
     # 搜索包含查询词的用户名，排除自己
     users = conn.execute(
         "SELECT username FROM users WHERE username LIKE ? AND username != ?",
-        (f"%{query}%", current_user)
+        (f"%{query}%", current_user),
     ).fetchall()
     conn.close()
 
@@ -523,7 +524,7 @@ def random_token(length: int = 1024, iterations: int = 100000) -> str:
     :param iterations: PBKDF2迭代次数，控制计算耗时，默认为100000
     :return: 十六进制字符串表示的Token
     """
-    key:bytes = b""
+    key: bytes = b""
     while key.hex() in list(token_map.keys()) or key == b"":
         # 确保长度为偶数（十六进制编码需要）
         if length % 2 != 0:
@@ -533,17 +534,11 @@ def random_token(length: int = 1024, iterations: int = 100000) -> str:
         byte_len = length // 2
 
         # 生成随机盐和密码（种子）
-        salt = secrets.token_bytes(16)          # 16字节盐
-        password = secrets.token_bytes(32)       # 32字节密码材料
+        salt = secrets.token_bytes(16)  # 16字节盐
+        password = secrets.token_bytes(32)  # 32字节密码材料
 
         # 使用PBKDF2生成指定长度的密钥
-        key = hashlib.pbkdf2_hmac(
-            'sha256',
-            password,
-            salt,
-            iterations,
-            dklen=byte_len
-        )
+        key = hashlib.pbkdf2_hmac("sha256", password, salt, iterations, dklen=byte_len)
 
     # 返回十六进制编码的Token
     return key.hex()
@@ -910,7 +905,8 @@ def get_friends_list():
     # 从 friends.db 获取好友列表
     conn_friend = get_friend_db()
     friend_rows = conn_friend.execute(
-        "SELECT friend_username, created_at FROM friends WHERE username = ?", (username,)
+        "SELECT friend_username, created_at FROM friends WHERE username = ?",
+        (username,),
     ).fetchall()
     conn_friend.close()
 
@@ -926,7 +922,7 @@ def get_friends_list():
         # 获取好友昵称（如果有）
         profile = conn_profile.execute(
             "SELECT nickname FROM user_profiles WHERE username = ?",
-            (row["friend_username"],)
+            (row["friend_username"],),
         ).fetchone()
         if profile and profile["nickname"]:
             friend_info["nickname"] = profile["nickname"]

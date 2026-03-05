@@ -3,11 +3,22 @@ from typing import Any, Dict, List
 
 import rich
 
-from client_api import (accept_friend_request, get_friends_list,
-                        get_incoming_requests, get_outgoing_requests, login,
-                        logout, register, reject_friend_request, remove_friend,
-                        send_friend_request, get_user_info, update_user_profile,
-                        rename_user, search_users)
+from client_api import (
+    accept_friend_request,
+    get_friends_list,
+    get_incoming_requests,
+    get_outgoing_requests,
+    get_user_info,
+    login,
+    logout,
+    register,
+    reject_friend_request,
+    remove_friend,
+    rename_user,
+    search_users,
+    send_friend_request,
+    update_user_profile,
+)
 
 # ========== 函数映射表 ==========
 FUNCTIONS = {
@@ -408,7 +419,7 @@ COMMANDS = [
 
 
 def build_parser(
-        parser: argparse.ArgumentParser, commands: List[Dict[str, Any]]
+    parser: argparse.ArgumentParser, commands: List[Dict[str, Any]]
 ) -> None:
     """递归构建 argparse 子命令解析器"""
     subparsers = parser.add_subparsers(title="子命令", dest="subcommand", required=True)

@@ -1,17 +1,31 @@
-import pickle
-import sys
-from plistlib import load
-
-import search_users_ui
-from PySide6.QtCore import QFile, QIODevice, QStringListModel
+from PySide6.QtCore import QFile, QStringListModel
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QLineEdit,
-                               QMainWindow, QMessageBox, QPushButton, QScrollArea, QLabel, QDockWidget, QWidget,
-                               QFrame, QListView, QTableWidget, QTableWidgetItem, QToolButton, QDialog)
-from PySide6.scripts.metaobjectdump import Slot
+from PySide6.QtWidgets import (
+    QApplication,
+    QCommandLinkButton,
+    QDialog,
+    QDockWidget,
+    QFrame,
+    QLineEdit,
+    QListView,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QToolButton,
+    QWidget,
+    QLabel,
+    QPlainTextEdit
+)
 
-from client_api import (login, register, get_friends_list, get_incoming_requests,
-                        get_outgoing_requests, get_user, logout, logger, search_users, get_user_info, rename_user)
+import add_friend
+import search_users_ui
+from client_api import (
+    get_friends_list,
+    login,
+    register,
+    search_users,
+    send_friend_request,
+)
 
 
 class RegLogWindow(QMainWindow):
@@ -23,18 +37,27 @@ class RegLogWindow(QMainWindow):
         self.user_name = ""
         self.token = ""
 
+
 class SearchUsersWindow(QDialog):
     def __init__(self, token):
         super().__init__()
         self.token = token
 
         search_users_ui.Ui_Dialog().setupUi(self)
-        self.search_button = self.findChild(QFrame, "frame_2").findChild(QToolButton, "toolButton")
+        self.search_button = self.findChild(QFrame, "frame_2").findChild(
+            QToolButton, "toolButton"
+        )
         self.search_button.clicked.connect(self.search)
 
-        self.line_edit = self.findChild(QFrame, "frame_2").findChild(QLineEdit, "lineEdit")
+        self.line_edit = self.findChild(QFrame, "frame_2").findChild(
+            QLineEdit, "lineEdit"
+        )
         self.listView = self.findChild(QListView, "listView")
+        self.listView.doubleClicked.connect(self.addFriends)
 
+    def addFriends(self):
+        window = addFriendWindow(self.token, self.listView.model().data(self.listView.currentIndex()))
+        window.exec()
 
     def search(self):
         r = search_users(self.token, self.line_edit.text())
@@ -48,6 +71,7 @@ class SearchUsersWindow(QDialog):
                 QMessageBox.warning(None, "搜索", f"发生错误，但服务器没有提供错误信息")
         else:
             QMessageBox.warning(None, "搜索", f"发生错误，无法跟服务器进行通讯")
+
 
 class LoginWindow(RegLogWindow):
     def __init__(self):
@@ -138,6 +162,48 @@ class RegisterWindow(RegLogWindow):
         self.window.close()
 
 
+class addFriendWindow(QDialog):
+    def __init__(self, token, user_name):
+        super().__init__()
+        self.token = token
+        self.user_name = user_name
+        add_friend.Ui_Dialog().setupUi(self)
+        self.label = self.findChild(
+            QFrame, "frame").findChild(
+            QLabel, "label"
+        )
+        self.label.setText(f"添加好友: {user_name}。请填写验证信息。")
+
+
+        self.ok_b = self.findChild(
+            QFrame, "frame_2").findChild(
+            QPushButton, "pushButton"
+        )
+        self.no_b = self.findChild(
+            QFrame, "frame_2").findChild(
+            QPushButton, "pushButton_2"
+        )
+
+        self.no_b.clicked.connect(lambda : self.close())
+        self.ok_b.clicked.connect(self.ok)
+
+    def ok(self):
+        r = send_friend_request(self.token, self.user_name, self.findChild(QFrame, "frame").findChild(QPlainTextEdit, "plainTextEdit").toPlainText())
+
+        if r.status_code == 200:
+            QMessageBox.information(None, "添加好友", "好友请求已发送!")
+            self.close()
+        elif r.status_code != 200 and r.status_code != -1:
+            try:
+                QMessageBox.warning(None, "添加好友", f"发生错误:{r.json()["error"]}")
+            except:
+                QMessageBox.warning(
+                    None, "添加好友", f"发生错误，但服务器没有提供错误信息"
+                )
+        else:
+            QMessageBox.warning(None, "添加好友", f"发生错误，无法跟服务器进行通讯")
+
+
 class ChattingWindow(QMainWindow):
     def __init__(self, password, user_name, token):
         super().__init__()
@@ -153,31 +219,31 @@ class ChattingWindow(QMainWindow):
 
         self.friends_list_data = self.reload_friends_list()
 
-        self.friends_list = (self.window
-                             .findChild(QDockWidget, "dockWidget_4")
-                             .findChild(QWidget, "dockWidgetContents_5")
-                             .findChild(QListView, "friends_list"))
+        self.friends_list = (
+            self.window.findChild(QDockWidget, "dockWidget_4")
+            .findChild(QWidget, "dockWidgetContents_5")
+            .findChild(QListView, "friends_list")
+        )
         self.friends_list.doubleClicked.connect(self.show_info)
 
-        self.add_friend_button = (self.window
-                                     .findChild(QDockWidget, "dockWidget_4")
-                                     .findChild(QWidget, "dockWidgetContents_5")
-                                     .findChild(QFrame, "frame_2")
-                                     .findChild(QToolButton, "add_friends")
-                                     )
+        self.add_friend_button = (
+            self.window.findChild(QDockWidget, "dockWidget_4")
+            .findChild(QWidget, "dockWidgetContents_5")
+            .findChild(QFrame, "frame_2")
+            .findChild(QToolButton, "add_friends")
+        )
         self.add_friend_button.clicked.connect(self.show_search_users_window)
-
 
     def show_search_users_window(self):
         search_users_window = SearchUsersWindow(self.token)
         search_users_window.exec()
 
-
-    def reload_friends_list(self) ->  list[str]:
-        friends_list = (self.window
-                             .findChild(QDockWidget, "dockWidget_4")
-                             .findChild(QWidget, "dockWidgetContents_5")
-                             .findChild(QListView, "friends_list"))
+    def reload_friends_list(self) -> list[str]:
+        friends_list = (
+            self.window.findChild(QDockWidget, "dockWidget_4")
+            .findChild(QWidget, "dockWidgetContents_5")
+            .findChild(QListView, "friends_list")
+        )
         friends_list.setModel(QStringListModel([]))
 
         friends_list_temp = []
@@ -188,15 +254,22 @@ class ChattingWindow(QMainWindow):
             for i in friends_list_r.json().get("friends"):
                 friends_list_temp.append(i.get("username"))
             friends_list_temp.sort()
-            friends_list_l .setStringList(friends_list_temp)
+            friends_list_l.setStringList(friends_list_temp)
             friends_list.setModel(friends_list_l)
         else:
             QMessageBox.warning(None, "获取好友列表", f"发生错误，无法跟服务器进行通讯")
         return friends_list_r.json()
 
     def show_info(self):
-        r = self.friends_list_data.get("friends")[self.friends_list.currentIndex().row()]
-        QMessageBox.information(None, "好友", f"用户名: {r.get('username')}\n用户id: {r.get("user_id")} \n添加时间: {r.get("created_at")}\n")
+        r = self.friends_list_data.get("friends")[
+            self.friends_list.currentIndex().row()
+        ]
+        QMessageBox.information(
+            None,
+            "好友",
+            f"用户名: {r.get('username')}\n用户id: {r.get("user_id")} \n添加时间: {r.get("created_at")}\n",
+        )
+
 
 if __name__ == "__main__":
     app = QApplication([])
@@ -218,8 +291,9 @@ if __name__ == "__main__":
             break
         app.exec()
 
-
     if login_window.logged_in:
-        chatting_window = ChattingWindow(login_window.password, login_window.user_name, login_window.token)
+        chatting_window = ChattingWindow(
+            login_window.password, login_window.user_name, login_window.token
+        )
         chatting_window.window.show()
         app.exec()

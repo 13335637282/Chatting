@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'search_friends.ui'
+## Form generated from reading UI file 'search_users.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.10.2
 ##
