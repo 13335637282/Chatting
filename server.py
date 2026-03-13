@@ -10,7 +10,8 @@ from datetime import datetime
 
 import rsa
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from argon2.exceptions import (InvalidHashError, VerificationError,
+                               VerifyMismatchError)
 from flask import Flask, jsonify, request
 from rsa import PrivateKey
 

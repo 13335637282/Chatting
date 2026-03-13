@@ -1,31 +1,15 @@
 from PySide6.QtCore import QFile, QStringListModel
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (
-    QApplication,
-    QCommandLinkButton,
-    QDialog,
-    QDockWidget,
-    QFrame,
-    QLineEdit,
-    QListView,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QToolButton,
-    QWidget,
-    QLabel,
-    QPlainTextEdit
-)
+from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QDialog,
+                               QDockWidget, QFrame, QLabel, QLineEdit,
+                               QListView, QMainWindow, QMessageBox,
+                               QPlainTextEdit, QPushButton, QToolButton,
+                               QWidget)
 
 import add_friend
 import search_users_ui
-from client_api import (
-    get_friends_list,
-    login,
-    register,
-    search_users,
-    send_friend_request,
-)
+from client_api import (get_friends_list, login, register, search_users,
+                        send_friend_request)
 
 
 class RegLogWindow(QMainWindow):
@@ -53,10 +37,21 @@ class SearchUsersWindow(QDialog):
             QLineEdit, "lineEdit"
         )
         self.listView = self.findChild(QListView, "listView")
-        self.listView.doubleClicked.connect(self.addFriends)
+        self.listView.doubleClicked.connect(self.add_friends)
 
-    def addFriends(self):
-        window = addFriendWindow(self.token, self.listView.model().data(self.listView.currentIndex()))
+        self.request_list_button = self.findChild(QFrame, "frame_2").findChild(
+            QToolButton, "toolButton_2"
+        )
+
+
+
+    def request_manage(self):
+        pass
+
+    def add_friends(self):
+        window = addFriendWindow(
+            self.token, self.listView.model().data(self.listView.currentIndex())
+        )
         window.exec()
 
     def search(self):
@@ -168,27 +163,27 @@ class addFriendWindow(QDialog):
         self.token = token
         self.user_name = user_name
         add_friend.Ui_Dialog().setupUi(self)
-        self.label = self.findChild(
-            QFrame, "frame").findChild(
-            QLabel, "label"
-        )
+        self.label = self.findChild(QFrame, "frame").findChild(QLabel, "label")
         self.label.setText(f"添加好友: {user_name}。请填写验证信息。")
 
-
-        self.ok_b = self.findChild(
-            QFrame, "frame_2").findChild(
+        self.ok_b = self.findChild(QFrame, "frame_2").findChild(
             QPushButton, "pushButton"
         )
-        self.no_b = self.findChild(
-            QFrame, "frame_2").findChild(
+        self.no_b = self.findChild(QFrame, "frame_2").findChild(
             QPushButton, "pushButton_2"
         )
 
-        self.no_b.clicked.connect(lambda : self.close())
+        self.no_b.clicked.connect(lambda: self.close())
         self.ok_b.clicked.connect(self.ok)
 
     def ok(self):
-        r = send_friend_request(self.token, self.user_name, self.findChild(QFrame, "frame").findChild(QPlainTextEdit, "plainTextEdit").toPlainText())
+        r = send_friend_request(
+            self.token,
+            self.user_name,
+            self.findChild(QFrame, "frame")
+            .findChild(QPlainTextEdit, "plainTextEdit")
+            .toPlainText(),
+        )
 
         if r.status_code == 200:
             QMessageBox.information(None, "添加好友", "好友请求已发送!")
@@ -232,6 +227,7 @@ class ChattingWindow(QMainWindow):
             .findChild(QFrame, "frame_2")
             .findChild(QToolButton, "add_friends")
         )
+
         self.add_friend_button.clicked.connect(self.show_search_users_window)
 
     def show_search_users_window(self):

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>546</width>
-    <height>697</height>
+    <width>508</width>
+    <height>696</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,6 +30,13 @@
        <widget class="QToolButton" name="toolButton">
         <property name="text">
          <string>搜索</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="toolButton_2">
+        <property name="text">
+         <string>好友请求列表</string>
         </property>
        </widget>
       </item>

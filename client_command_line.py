@@ -3,22 +3,11 @@ from typing import Any, Dict, List
 
 import rich
 
-from client_api import (
-    accept_friend_request,
-    get_friends_list,
-    get_incoming_requests,
-    get_outgoing_requests,
-    get_user_info,
-    login,
-    logout,
-    register,
-    reject_friend_request,
-    remove_friend,
-    rename_user,
-    search_users,
-    send_friend_request,
-    update_user_profile,
-)
+from client_api import (accept_friend_request, get_friends_list,
+                        get_incoming_requests, get_outgoing_requests,
+                        get_user_info, login, logout, register,
+                        reject_friend_request, remove_friend, rename_user,
+                        search_users, send_friend_request, update_user_profile)
 
 # ========== 函数映射表 ==========
 FUNCTIONS = {

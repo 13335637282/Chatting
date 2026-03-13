@@ -93,14 +93,14 @@
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QPushButton" name="settings">
+         <widget class="QToolButton" name="toolButton_2">
           <property name="text">
            <string>设置</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="more">
+         <widget class="QToolButton" name="toolButton">
           <property name="text">
            <string>...</string>
           </property>
