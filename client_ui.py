@@ -1,16 +1,44 @@
-from PySide6.QtCore import QFile, QStringListModel
+import sys
+import threading
+import time
+from threading import Thread
+
+from PySide6.QtCore import QFile, QStringListModel, Qt, QThread
+from PySide6.QtGui import QIcon
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QDialog,
                                QDockWidget, QFrame, QLabel, QLineEdit,
                                QListView, QMainWindow, QMessageBox,
                                QPlainTextEdit, QPushButton, QToolButton,
-                               QWidget)
+                               QWidget, QScrollArea, QVBoxLayout, )
 
 import add_friend
+import friend_request_widget
+import request_manage
 import search_users_ui
+import schedule
 from client_api import (get_friends_list, login, register, search_users,
-                        send_friend_request)
+                        send_friend_request, get_incoming_requests, get_outgoing_requests, accept_friend_request,
+                        reject_friend_request, logout)
 
+print("""
+ ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗ 
+██╔════╝██║  ██║██╔══██╗╚══██╔══╝╚══██╔══╝██║████╗  ██║██╔════╝ 
+██║     ███████║███████║   ██║      ██║   ██║██╔██╗ ██║██║  ███╗
+██║     ██╔══██║██╔══██║   ██║      ██║   ██║██║╚██╗██║██║   ██║
+╚██████╗██║  ██║██║  ██║   ██║      ██║   ██║██║ ╚████║╚██████╔╝
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+
+     _/_/_/  _/                    _/      _/      _/                      
+  _/        _/_/_/      _/_/_/  _/_/_/_/_/_/_/_/      _/_/_/      _/_/_/   
+ _/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/    
+_/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/     
+ _/_/_/  _/    _/    _/_/_/      _/_/    _/_/  _/  _/    _/    _/_/_/      
+                                                                  _/       
+                                                             _/_/          
+""")
+
+task = []
 
 class RegLogWindow(QMainWindow):
     def __init__(self):
@@ -20,6 +48,75 @@ class RegLogWindow(QMainWindow):
         self.password = ""
         self.user_name = ""
         self.token = ""
+
+
+class RequestWidget(QWidget):
+    def __init__(self, token, username, content,request_id:int=None,state:str=None):
+        super().__init__()
+        self.token = token
+        self.username = username
+        self.content = content
+        self.request_id = request_id
+        friend_request_widget.Ui_Form().setupUi(self)
+        self.findChild(QFrame,"frame_3").findChild(QLabel,"label").setText(username)
+        self.findChild(QFrame,"frame_3").findChild(QLabel,"label_2").setText(content)
+        if request_id:
+            self.findChild(QToolButton, "toolButton").clicked.connect(self.accept)
+            self.findChild(QToolButton, "toolButton_2").clicked.connect(self.reject)
+        else:
+            self.findChild(QToolButton, "toolButton").setEnabled(False)
+            self.findChild(QToolButton, "toolButton").setText(state)
+            self.findChild(QToolButton, "toolButton_2").setEnabled(False)
+            self.findChild(QToolButton, "toolButton_2").hide()
+
+    def accept(self):
+        accept_friend_request(self.token, self.request_id)
+        task.append("reload_friends_list")
+        task.append("reload_request_list")
+
+    def reject(self):
+        reject_friend_request(self.token, self.request_id)
+        task.append("reload_friends_list")
+        task.append("reload_request_list")
+
+class FriendsRequestManage(QDialog):
+    def __init__(self, token):
+        super().__init__()
+        request_manage.Ui_Dialog().setupUi(self)
+        self.scroll_area = self.findChild(QScrollArea, "scrollArea")
+
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # 隐藏横向滚动条
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # 竖向滚动条按需显示
+        self.scroll_area.setWidgetResizable(True)
+
+        content_widget = QWidget()
+        self.content_layout = QVBoxLayout(content_widget)
+        # 设置布局间距和边距，优化显示效果
+        self.content_layout.setSpacing(15)
+        self.content_layout.setContentsMargins(20, 20, 20, 20)
+
+        incoming = get_incoming_requests(token)
+        outgoing = get_outgoing_requests(token)
+
+        if (incoming.status_code == 200):
+            for i in incoming.json()["requests"]:
+                self.content_layout.addWidget(RequestWidget(token,i["from_username"],i["message"],i["request_id"]))
+
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        self.content_layout.addWidget(line)
+
+        if (outgoing.status_code == 200):
+            for i in outgoing.json()["requests"]:
+                self.content_layout.addWidget(RequestWidget(token,i["to_username"],i["message"],
+                                                            state=str(i["status"])
+                                                            .replace("pending", "等待处理中")
+                                                            .replace("accepted", "对方已通过")
+                                                            .replace("rejected", "对方已拒绝")))
+
+
+        self.scroll_area.setWidget(content_widget)
 
 
 class SearchUsersWindow(QDialog):
@@ -42,11 +139,10 @@ class SearchUsersWindow(QDialog):
         self.request_list_button = self.findChild(QFrame, "frame_2").findChild(
             QToolButton, "toolButton_2"
         )
-
-
+        self.request_list_button.clicked.connect(self.request_manage)
 
     def request_manage(self):
-        pass
+        FriendsRequestManage(self.token).exec()
 
     def add_friends(self):
         window = addFriendWindow(
@@ -61,7 +157,7 @@ class SearchUsersWindow(QDialog):
             self.listView.setModel(QStringListModel(r.json()["users"]))
         elif r.status_code != 200 and r.status_code != -1:
             try:
-                QMessageBox.warning(None, "搜索", f"发生错误:{r.json()["error"]}")
+                QMessageBox.warning(None, "搜索", f"发生错误:{r.json()['error']}")
             except:
                 QMessageBox.warning(None, "搜索", f"发生错误，但服务器没有提供错误信息")
         else:
@@ -101,7 +197,7 @@ class LoginWindow(RegLogWindow):
             self.window.close()
         elif r.status_code != 200 and r.status_code != -1:
             try:
-                QMessageBox.warning(None, "登录", f"发生错误:{r.json()["error"]}")
+                QMessageBox.warning(None, "登录", f"发生错误:{r.json()['error']}")
             except:
                 QMessageBox.warning(None, "登录", f"发生错误，但服务器没有提供错误信息")
         else:
@@ -142,7 +238,7 @@ class RegisterWindow(RegLogWindow):
                 self.login()
             elif r.status_code != 201 and r.status_code != -1:
                 try:
-                    QMessageBox.warning(None, "注册", f"发生错误:{r.json()["error"]}")
+                    QMessageBox.warning(None, "注册", f"发生错误:{r.json()['error']}")
                 except:
                     QMessageBox.warning(
                         None, "注册", f"发生错误，但服务器没有提供错误信息"
@@ -185,12 +281,12 @@ class addFriendWindow(QDialog):
             .toPlainText(),
         )
 
-        if r.status_code == 200:
+        if r.status_code == 201:
             QMessageBox.information(None, "添加好友", "好友请求已发送!")
             self.close()
-        elif r.status_code != 200 and r.status_code != -1:
+        elif r.status_code != 201 and r.status_code != -1:
             try:
-                QMessageBox.warning(None, "添加好友", f"发生错误:{r.json()["error"]}")
+                QMessageBox.warning(None, "添加好友", f"发生错误:{r.json()['error']}")
             except:
                 QMessageBox.warning(
                     None, "添加好友", f"发生错误，但服务器没有提供错误信息"
@@ -203,6 +299,7 @@ class ChattingWindow(QMainWindow):
     def __init__(self, password, user_name, token):
         super().__init__()
 
+        self.state = ""
         self.password = password
         self.user_name = user_name
         self.token = token
@@ -228,7 +325,28 @@ class ChattingWindow(QMainWindow):
             .findChild(QToolButton, "add_friends")
         )
 
+        (
+            self.window.findChild(QDockWidget, "dockWidget_4")
+        .findChild(QWidget, "dockWidgetContents_5")
+        .findChild(QFrame, "frame")
+        .findChild(QToolButton, "toolButton_3")
+        ).clicked.connect(self.logout)
+
         self.add_friend_button.clicked.connect(self.show_search_users_window)
+
+        threading.Timer(0.2, self.scan_self_task).start()
+
+    def scan_self_task(self):
+        for i in task:
+            if i == "reload_friends_list":
+                self.reload_friends_list()
+                task.remove(i)
+        threading.Timer(0.2, self.scan_self_task).start()
+
+    def logout(self):
+        self.close()
+        logout(self.token)
+        self.state = "logout"
 
     def show_search_users_window(self):
         search_users_window = SearchUsersWindow(self.token)
@@ -263,33 +381,61 @@ class ChattingWindow(QMainWindow):
         QMessageBox.information(
             None,
             "好友",
-            f"用户名: {r.get('username')}\n用户id: {r.get("user_id")} \n添加时间: {r.get("created_at")}\n",
+            f"用户名: {r.get('username')}\n用户id: {r.get('user_id')} \n添加时间: {r.get('created_at')}\n",
         )
+
+
+def run_auth_flow():
+    """运行登录/注册认证流程"""
+    app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("ico.png"))
+    auth_window = RegLogWindow()
+    auth_window.action = "login"  # 默认进入登录流程
+
+    # 核心认证循环：处理登录/注册切换
+    while True:
+        current_window = None
+
+        # 根据操作类型创建对应窗口
+        if auth_window.action == "register":
+            current_window = RegisterWindow()
+        elif auth_window.action == "login":
+            current_window = LoginWindow()
+        else:
+            # 非登录/注册操作，退出认证流程
+            break
+
+        # 显示窗口并运行事件循环
+        current_window.window.show()
+        app.exec()
+
+        # 更新认证窗口状态（继承当前窗口的状态）
+        auth_window = current_window
+
+        # 登录成功则进入聊天窗口
+        if auth_window.logged_in:
+            # 启动聊天窗口
+            chatting_window = ChattingWindow(
+                auth_window.password,
+                auth_window.user_name,
+                auth_window.token
+            )
+            chatting_window.window.show()
+            app.exec()
+            if (chatting_window.state == "logout"):
+                pass
+            else:
+                break  # 聊天窗口退出后，结束整个认证流
+
+    # 退出应用
+    app.quit()
 
 
 if __name__ == "__main__":
-    app = QApplication([])
-    login_window: RegLogWindow = RegLogWindow()
-    login_window.action = "login"
-
+    # 主循环：支持关闭后重新打开认证窗口
     while True:
-        if login_window.action == "register":
-            login_window = RegisterWindow()
-            login_window.window.show()  # type: ignore[attr-defined]
-        elif login_window.action == "login":
-            login_window = LoginWindow()
-            login_window.window.show()  # type: ignore[attr-defined]
-        elif login_window.logged_in:
-            app.quit()
-            break
-        else:
-            app.quit()
-            break
-        app.exec()
+        run_auth_flow()
 
-    if login_window.logged_in:
-        chatting_window = ChattingWindow(
-            login_window.password, login_window.user_name, login_window.token
-        )
-        chatting_window.window.show()
-        app.exec()
+        exit_flag = False
+        if exit_flag:
+            exit(0)

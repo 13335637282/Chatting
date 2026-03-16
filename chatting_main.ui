@@ -100,6 +100,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QToolButton" name="toolButton_3">
+          <property name="text">
+           <string>登出</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QToolButton" name="toolButton">
           <property name="text">
            <string>...</string>

@@ -15,6 +15,23 @@ from argon2.exceptions import (InvalidHashError, VerificationError,
 from flask import Flask, jsonify, request
 from rsa import PrivateKey
 
+print("""
+ ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗ 
+██╔════╝██║  ██║██╔══██╗╚══██╔══╝╚══██╔══╝██║████╗  ██║██╔════╝ 
+██║     ███████║███████║   ██║      ██║   ██║██╔██╗ ██║██║  ███╗
+██║     ██╔══██║██╔══██║   ██║      ██║   ██║██║╚██╗██║██║   ██║
+╚██████╗██║  ██║██║  ██║   ██║      ██║   ██║██║ ╚████║╚██████╔╝
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+                                                                   
+     _/_/_/  _/                    _/      _/      _/                      
+  _/        _/_/_/      _/_/_/  _/_/_/_/_/_/_/_/      _/_/_/      _/_/_/   
+ _/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/    
+_/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/     
+ _/_/_/  _/    _/    _/_/_/      _/_/    _/_/  _/  _/    _/    _/_/_/      
+                                                                  _/       
+                                                             _/_/          
+""")
+
 __license__ = """Apache License 2.0"""
 
 app = Flask(__name__)
@@ -472,8 +489,8 @@ def rename_user(old_username: str):
 
     except Exception as e:
         # 回滚所有事务
-        conn_login.rollback()  # Get OUT!
-        conn_friend.rollback()  # 朋友？ 滚回去！
+        conn_login.rollback()
+        conn_friend.rollback()
         conn_requests.rollback()
         conn_profile.rollback()
         logger.error(f"修改用户名失败: {str(e)}")

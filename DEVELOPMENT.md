@@ -1,4 +1,8 @@
 # Chatting 开发文档
+
+## 调用 客户端 api
+[待完善，目前接口不是很多所以翻翻 client_api.py 勉强够用]
+
 ## 客户端 API
 建议不要手动使用下列接口。建议使用 client_api 中的函数来完成调用，如对此api函数定义不熟悉请参阅 [Python 客户端开发文档](#client-api-文档)。
 ### 📖 API 文档
@@ -40,21 +44,6 @@
   ```
 - `401 Unauthorized`：用户名或密码错误[返回体中有error对象]
 - `400 Bad Request`：请求格式错误[返回体中有error对象]
-
-### 获取用户信息 `GET /users/<token>`
-*警告: 此向请求还在开发阶段，未来有计划移除这项接口*  
-
-**路径参数**：`token` - 登录时获得的 Token  
-**响应**
-- `200 OK`：返回用户基本信息
-  ```json
-  {
-    "id": <id>,
-    "username": "<用户名>"
-  }
-  ```
-- `401 Unauthorized`：Token 无效或过期[返回体中有error对象]
-- `404 Not Found`：用户不存在[返回体中有error对象]
 
 ### 获取用户详细信息 `GET /users/<username>?token=<token>`
 **路径参数**：`username` - 要查询的用户名  
@@ -313,9 +302,8 @@
 ```
 *注意：健康检查返回的字段名为"error"但实际表示服务正常*
 
-## client api 文档
-
-
+## 注意
+一般建议直接调用 client_api.py 中的接口，接口用途详见doc string
 
 ## 🐛 故障排查
 
@@ -328,7 +316,7 @@
 | 发送好友请求时提示“用户不存在”                 | 输入的用户名错误                     | 确认好友用户名是否正确                        |
 | 无法接受好友请求                         | token无效或请求已被处理               | 重新登录或检查请求状态                        |
 
-## 🗄 数据库结构
+## 🗄 数据库结构 [暂未更新，可能有误]
 
 ### login.db
 **users表**
@@ -367,3 +355,8 @@
 - `bio` TEXT
 - `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 - FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+
+[README](README.md)
+[致谢名单](CREDITS.md)
+[贡献指南](CONTRIBUTING.md)
+[版本命名](VERSIONING.md)
