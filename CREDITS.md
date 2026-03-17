@@ -7,21 +7,64 @@
 ### rich
 很好的美化输出工具
 ### textual
-虽然因为界面精度问题已经不是项目的UI框架了，但是他的 TUI 很美观
-### rsa
-很好用的 RSA 加密库
-### maliang
-很好用的 GUI 库，基于 tkinter，但目前文档不是很成熟所以现在已经不是项目 UI 框架了，他的 auto-zoom 很好用
-### pyside
-很好用的 GUI 库，基于 C QT 开发。
+虽然因为界面精度问题已经不是项目的UI框架了，但是他的 TUI 很美观。  
 
-## 参与制作人员
-### Cbscfe
-负责代码开发，调试
-### No_Bug (A_Hello)
-项目创建者
-### 提交过 PR, Issue 的各位
-感谢您对本项目的付出
+"他的 TUI 真的很帅啊" —— Cbscfe
+"这是我们的最初的UI库" —— No_Bug
+
+### rsa
+很好用的 RSA 加密库。   
+
+"真的很好用啊!" —— No_Bug
+
+### maliang
+很好用的 GUI 库，基于 tkinter，   
+但目前文档、组件还不是很成熟，所以现在已经不是项目 UI 框架了。
+
+"他的 auto-zoom 真的很好用啊" —— No_Bug  
+"看到界面组件也跟着缩小的那一刻我的脑子也跟着缩小了。" —— Cbscfe
+
+### pyQt
+跟 pyside 功能相似吧，  GPL 协议
+
+PyQt 由 Riverbank Computing 开发，社区活跃，文档和示例丰富，但新特性引入可能稍慢。
+
+### pySide
+很好用的 GUI 库，LGPL 协议
+
+PySide 由 Qt 官方（The Qt Company）维护，与 Qt 主版本同步更新，API 更贴近原生 Qt。
+
+## 制作人员(排名不分先后)
+### 服务器代码
+Cbscfe   
+No_Bug
+
+### 客户端代码
+Cbscfe  
+No_Bug
+
+### 图标制作
+豆包 (神秘的AI)  
+(如果有更好的意见可提交 issue)
+
+### 软件UI
+Cbscfe
+No_Bug
+
+### 文档制作
+Cbscfe  
+No_Bug
+
+### 测试
+Cbscfe
+No_Bug
+
+### ~~搞抽象~~ 藏彩蛋
+No_Bug
+
+## 说明
+提交 issue、PR 后被处理后会加入制作人员名单 (无用信息除外，如重复问题等)
+
 
 [README](README.md)
 [开发文档](DEVELOPMENT.md)

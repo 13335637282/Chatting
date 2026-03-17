@@ -84,23 +84,6 @@ def login(username: str, plain_password: str) -> Response:
         rep.status_code = -1
         return rep
 
-
-def get_user(token) -> Response:
-    """
-    此函数还在开发中...
-    暂无文档
-    """
-    try:
-        url = f"{BASE_URL}/users/{token}"
-        resp: Response = requests.get(url)
-        logger.debug(f"[查询] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
-        return resp
-    except Exception:
-        rep: Response = Response()
-        rep.status_code = -1
-        return rep
-
-
 def logout(token) -> Response:
     """
     传入一个 token 服务器将会删除这个token。
@@ -227,16 +210,16 @@ def get_friends_list(token: str) -> Response:
         return rep
 
 
-def remove_friend(token: str, friend_id: int) -> Response:
+def remove_friend(token: str, friend_username: int) -> Response:
     """
     删除好友
-    API DELETE /friends/<friend_id>
+    API DELETE /friends/<friend_username>
     """
     try:
-        url = f"{BASE_URL}/friends/{friend_id}"
+        url = f"{BASE_URL}/friends/{friend_username}"
         payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
-        logger.debug(f"[删除好友] {friend_id} -> 状态 {resp.status_code}")
+        logger.debug(f"[删除好友] {friend_username} -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()
