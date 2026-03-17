@@ -84,6 +84,7 @@ def login(username: str, plain_password: str) -> Response:
         rep.status_code = -1
         return rep
 
+
 def logout(token) -> Response:
     """
     传入一个 token 服务器将会删除这个token。

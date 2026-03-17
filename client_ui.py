@@ -1,29 +1,27 @@
+import json
 import os
 import sys
 import threading
-import json
 from threading import Thread
 
+import schedule
 from PySide6.QtCore import QFile, QStringListModel, Qt, QTimer
-from PySide6.QtGui import QIcon, QFontDatabase, QFont
+from PySide6.QtGui import QFont, QFontDatabase, QIcon
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (
-    QApplication, QCommandLinkButton, QDialog, QDockWidget, QFrame,
-    QLabel, QLineEdit, QListView, QMainWindow, QMessageBox,
-    QPlainTextEdit, QPushButton, QToolButton, QWidget, QScrollArea,
-    QVBoxLayout,
-)
+from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QDialog,
+                               QDockWidget, QFrame, QLabel, QLineEdit,
+                               QListView, QMainWindow, QMessageBox,
+                               QPlainTextEdit, QPushButton, QScrollArea,
+                               QToolButton, QVBoxLayout, QWidget)
 
 import add_friend
 import friend_request_widget
 import request_manage
 import search_users_ui
-import schedule
-from client_api import (
-    get_friends_list, login, register, search_users,
-    send_friend_request, get_incoming_requests, get_outgoing_requests,
-    accept_friend_request, reject_friend_request, logout
-)
+from client_api import (accept_friend_request, get_friends_list,
+                        get_incoming_requests, get_outgoing_requests, login,
+                        logout, register, reject_friend_request, search_users,
+                        send_friend_request)
 
 print("""
  ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗ 
@@ -48,78 +46,78 @@ task = []
 
 def get_setting(path, default=None):
     """读取配置文件 settings.json，获取指定路径的值
-    
+
     Args:
         path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
         default: 默认值，如果配置不存在则返回此值
-    
+
     Returns:
         配置值或默认值
     """
     settings_file = "settings.json"
-    
+
     # 如果文件不存在，创建空配置文件
     if not os.path.exists(settings_file):
-        with open(settings_file, 'w', encoding='utf-8') as f:
+        with open(settings_file, "w", encoding="utf-8") as f:
             json.dump({}, f)
         return default
-    
+
     # 读取配置文件
     try:
-        with open(settings_file, 'r', encoding='utf-8') as f:
+        with open(settings_file, "r", encoding="utf-8") as f:
             settings = json.load(f)
     except (json.JSONDecodeError, IOError):
         # 文件损坏或读取失败，创建新文件
-        with open(settings_file, 'w', encoding='utf-8') as f:
+        with open(settings_file, "w", encoding="utf-8") as f:
             json.dump({}, f)
         return default
-    
+
     # 按路径获取值
-    keys = path.split('.')
+    keys = path.split(".")
     value = settings
     for key in keys:
         if isinstance(value, dict) and key in value:
             value = value[key]
         else:
             return default
-    
+
     return value
 
 
 def set_setting(path, value):
     """设置配置文件中指定路径的值
-    
+
     Args:
         path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
         value: 要设置的值
-    
+
     Returns:
         bool: 是否设置成功
     """
     settings_file = "settings.json"
-    
+
     # 读取现有配置
     if os.path.exists(settings_file):
         try:
-            with open(settings_file, 'r', encoding='utf-8') as f:
+            with open(settings_file, "r", encoding="utf-8") as f:
                 settings = json.load(f)
         except (json.JSONDecodeError, IOError):
             settings = {}
     else:
         settings = {}
-    
+
     # 按路径设置值
-    keys = path.split('.')
+    keys = path.split(".")
     current = settings
     for key in keys[:-1]:
         if key not in current or not isinstance(current[key], dict):
             current[key] = {}
         current = current[key]
     current[keys[-1]] = value
-    
+
     # 写入文件
     try:
-        with open(settings_file, 'w', encoding='utf-8') as f:
+        with open(settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=4, ensure_ascii=False)
         return True
     except IOError:
@@ -140,6 +138,7 @@ def show_api_error(parent, context, response):
 
 class RegLogWindow(QMainWindow):
     """登录/注册基类（保留以兼容现有逻辑）"""
+
     def __init__(self):
         super().__init__()
         self.action = ""
@@ -148,13 +147,24 @@ class RegLogWindow(QMainWindow):
         self.user_name = ""
         self.token = ""
 
+
 class FriendRequestManageDialog_(QDialog):
     def reload_requests(self):
         pass
 
+
 class RequestWidget(QWidget):
     """好友请求条目控件"""
-    def __init__(self, token, username, content, request_id=None, state=None, parent: FriendRequestManageDialog_ =None):
+
+    def __init__(
+        self,
+        token,
+        username,
+        content,
+        request_id=None,
+        state=None,
+        parent: FriendRequestManageDialog_ = None,
+    ):
         super().__init__()
         self.token = token
         self.username = username
@@ -199,6 +209,7 @@ class RequestWidget(QWidget):
 
 class FriendRequestManageDialog(FriendRequestManageDialog_):
     """好友请求管理窗口"""
+
     def __init__(self, token):
         super().__init__()
         self.token = token
@@ -232,9 +243,15 @@ class FriendRequestManageDialog(FriendRequestManageDialog_):
         # 收到的请求
         layout.addWidget(QLabel("你收到的请求"))
         for req in incoming_resp.json()["requests"]:
-            layout.addWidget(RequestWidget(
-                self.token, req["from_username"], req["message"], req["request_id"],parent=self
-            ))
+            layout.addWidget(
+                RequestWidget(
+                    self.token,
+                    req["from_username"],
+                    req["message"],
+                    req["request_id"],
+                    parent=self,
+                )
+            )
 
         # 分隔线
         line = QFrame()
@@ -248,19 +265,21 @@ class FriendRequestManageDialog(FriendRequestManageDialog_):
             status_map = {
                 "pending": "等待处理中",
                 "accepted": "对方已通过",
-                "rejected": "对方已拒绝"
+                "rejected": "对方已拒绝",
             }
             state = status_map.get(req["status"], req["status"])
-            layout.addWidget(RequestWidget(
-                self.token, req["to_username"], req["message"],
-                state=state
-            ))
+            layout.addWidget(
+                RequestWidget(
+                    self.token, req["to_username"], req["message"], state=state
+                )
+            )
 
         self.scroll_area.setWidget(content_widget)
 
 
 class SearchUsersDialog(QDialog):
     """搜索用户窗口"""
+
     def __init__(self, token):
         super().__init__()
         self.token = token
@@ -370,6 +389,7 @@ class RegisterWindow(RegLogWindow):
 
 class AddFriendDialog(QDialog):
     """发送好友请求对话框"""
+
     def __init__(self, token, friend_username):
         super().__init__()
         self.token = token
