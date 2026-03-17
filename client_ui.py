@@ -6,18 +6,20 @@ from threading import Thread
 
 import schedule
 from PySide6.QtCore import QFile, QStringListModel, Qt, QTimer
-from PySide6.QtGui import QFont, QFontDatabase, QIcon
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (QApplication, QCommandLinkButton, QDialog,
-                               QDockWidget, QFrame, QLabel, QLineEdit,
-                               QListView, QMainWindow, QMessageBox,
-                               QPlainTextEdit, QPushButton, QScrollArea,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QCommandLinkButton,
+                               QDialog, QDockWidget, QFileDialog, QFrame,
+                               QLabel, QLineEdit, QListView, QMainWindow,
+                               QMessageBox, QPlainTextEdit, QPushButton,
+                               QRadioButton, QScrollArea, QSpinBox,
+                               QTextBrowser, QToolButton, QVBoxLayout, QWidget)
 
 import add_friend
 import friend_request_widget
 import request_manage
 import search_users_ui
+import settings
 from client_api import (accept_friend_request, get_friends_list,
                         get_incoming_requests, get_outgoing_requests, login,
                         logout, register, reject_friend_request, search_users,
@@ -423,6 +425,168 @@ class AddFriendDialog(QDialog):
             show_api_error(self, "添加好友", response)
 
 
+class SettingsDialog(QDialog):
+    """设置对话框"""
+
+    def __init__(self):
+        super().__init__()
+        settings.Ui_Dialog().setupUi(self)
+
+        # 主题相关控件
+        self.light_theme_radio = self.findChild(QRadioButton, "light_theme_radio")
+        self.dark_theme_radio = self.findChild(QRadioButton, "dark_theme_radio")
+
+        # 字体相关控件
+        self.font_family_combo = self.findChild(QComboBox, "font_family_combo")
+        self.font_size_spin = self.findChild(QSpinBox, "font_size_spin")
+        self.apply_font_button = self.findChild(QPushButton, "apply_font_button")
+        self.select_font_file_button = self.findChild(QPushButton, "select_font_file_button")
+
+        # 关于标签页控件
+        self.credits_text_browser = self.findChild(QTextBrowser, "credits_text_browser")
+
+        # 先加载可用字体
+        self.load_fonts()
+
+        # 再加载保存的设置
+        self.load_settings()
+
+        # 加载致谢内容
+        self.load_credits()
+
+        # 连接信号
+        self.light_theme_radio.toggled.connect(self.on_theme_changed)
+        self.dark_theme_radio.toggled.connect(self.on_theme_changed)
+        self.apply_font_button.clicked.connect(self.apply_font)
+        self.select_font_file_button.clicked.connect(self.select_font_file)
+
+    def load_settings(self):
+        """从配置文件加载设置"""
+        # 加载主题设置
+        theme = get_setting("theme", "light")
+        if theme == "dark":
+            self.dark_theme_radio.setChecked(True)
+        else:
+            self.light_theme_radio.setChecked(True)
+
+        # 加载字体设置
+        font_family = get_setting("font.family", "")
+        font_size = get_setting("font.size", 12)
+
+        if font_family:
+            index = self.font_family_combo.findText(font_family)
+            if index >= 0:
+                self.font_family_combo.setCurrentIndex(index)
+
+        self.font_size_spin.setValue(font_size)
+
+    def load_fonts(self):
+        """加载系统可用字体"""
+        font_families = QFontDatabase.families()
+        self.font_family_combo.addItems(font_families)
+
+    def select_font_file(self):
+        """选择本地TTF字体文件"""
+        font_file, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择字体文件",
+            "",
+            "字体文件 (*.ttf *.otf *.TTF *.OTF);;所有文件 (*)"
+        )
+        
+        if font_file:
+            # 加载字体文件
+            font_id = QFontDatabase.addApplicationFont(font_file)
+            if font_id == -1:
+                QMessageBox.warning(self, "错误", "无法加载字体文件")
+                return
+            
+            # 获取字体族名称
+            font_families = QFontDatabase.applicationFontFamilies(font_id)
+            if font_families:
+                font_family = font_families[0]
+                
+                # 检查是否已在列表中
+                index = self.font_family_combo.findText(font_family)
+                if index < 0:
+                    # 添加到列表
+                    self.font_family_combo.addItem(font_family)
+                    index = self.font_family_combo.count() - 1
+                
+                # 选中该字体
+                self.font_family_combo.setCurrentIndex(index)
+                
+                # 保存字体文件路径
+                set_setting("font.file_path", font_file)
+                
+                QMessageBox.information(self, "成功", f"已加载字体：{font_family}")
+
+    def load_credits(self):
+        """加载并显示 CREDITS.md 内容"""
+        credits_file = "CREDITS.md"
+        if not os.path.exists(credits_file):
+            self.credits_text_browser.setMarkdown("# 致谢\n\n未找到 CREDITS.md 文件")
+            return
+
+        try:
+            with open(credits_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.credits_text_browser.setMarkdown(content)
+        except Exception as e:
+            self.credits_text_browser.setMarkdown(f"# 致谢\n\n加载失败：{str(e)}")
+
+    def on_theme_changed(self):
+        """主题切换处理"""
+        if self.dark_theme_radio.isChecked():
+            self.apply_theme("dark")
+            set_setting("theme", "dark")
+        else:
+            self.apply_theme("light")
+            set_setting("theme", "light")
+
+    def apply_theme(self, theme):
+        """应用主题"""
+        app = QApplication.instance()
+        if not app:
+            return
+
+        palette = QPalette()
+
+        if theme == "dark":
+            # 深色主题
+            palette.setColor(QPalette.Window, QColor(53, 53, 53))
+            palette.setColor(QPalette.WindowText, Qt.white)
+            palette.setColor(QPalette.Base, QColor(25, 25, 25))
+            palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+            palette.setColor(QPalette.ToolTipBase, Qt.white)
+            palette.setColor(QPalette.ToolTipText, Qt.white)
+            palette.setColor(QPalette.Text, Qt.white)
+            palette.setColor(QPalette.Button, QColor(53, 53, 53))
+            palette.setColor(QPalette.ButtonText, Qt.white)
+            palette.setColor(QPalette.BrightText, Qt.red)
+            palette.setColor(QPalette.Link, QColor(42, 130, 218))
+            palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+            palette.setColor(QPalette.HighlightedText, Qt.black)
+        else:
+            # 浅色主题（默认）
+            palette = QPalette()
+
+        app.setPalette(palette)
+
+    def apply_font(self):
+        """应用字体设置"""
+        font_family = self.font_family_combo.currentText()
+        font_size = self.font_size_spin.value()
+
+        app = QApplication.instance()
+        if app:
+            app.setFont(QFont(font_family, font_size))
+
+        # 保存设置
+        set_setting("font.family", font_family)
+        set_setting("font.size", font_size)
+
+
 class ChattingMainWindow(QMainWindow):
     def __init__(self, password, user_name, token):
         super().__init__()
@@ -452,6 +616,10 @@ class ChattingMainWindow(QMainWindow):
         self.logout_button = frame.findChild(QToolButton, "toolButton_3")
         self.logout_button.clicked.connect(self.do_logout)
 
+        # 设置按钮
+        self.settings_button = frame.findChild(QToolButton, "toolButton_2")
+        self.settings_button.clicked.connect(self.open_settings)
+
         # 定时处理全局任务
         self.timer = QTimer()
         self.timer.timeout.connect(self.process_tasks)
@@ -473,6 +641,10 @@ class ChattingMainWindow(QMainWindow):
 
     def open_search_users(self):
         dialog = SearchUsersDialog(self.token)
+        dialog.exec()
+
+    def open_settings(self):
+        dialog = SettingsDialog()
         dialog.exec()
 
     def reload_friends_list(self):
@@ -530,6 +702,39 @@ def run_auth_flow():
     app = QApplication.instance() or QApplication(sys.argv)
     app.setWindowIcon(QIcon("ico/ico.png"))
 
+    # 加载并应用主题设置
+    theme = get_setting("theme", "light")
+    if theme == "dark":
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(53, 53, 53))
+        palette.setColor(QPalette.WindowText, Qt.white)
+        palette.setColor(QPalette.Base, QColor(25, 25, 25))
+        palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+        palette.setColor(QPalette.ToolTipBase, Qt.white)
+        palette.setColor(QPalette.ToolTipText, Qt.white)
+        palette.setColor(QPalette.Text, Qt.white)
+        palette.setColor(QPalette.Button, QColor(53, 53, 53))
+        palette.setColor(QPalette.ButtonText, Qt.white)
+        palette.setColor(QPalette.BrightText, Qt.red)
+        palette.setColor(QPalette.Link, QColor(42, 130, 218))
+        palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+        palette.setColor(QPalette.HighlightedText, Qt.black)
+        app.setPalette(palette)
+
+    # 加载并应用字体设置
+    font_family = get_setting("font.family", "")
+    font_size = get_setting("font.size", 12)
+    font_file_path = get_setting("font.file_path", "")
+
+    # 先尝试加载用户自定义的字体文件
+    if font_file_path and os.path.exists(font_file_path):
+        custom_font_id = QFontDatabase.addApplicationFont(font_file_path)
+        if custom_font_id != -1:
+            custom_font_families = QFontDatabase.applicationFontFamilies(custom_font_id)
+            if custom_font_families:
+                print(f"成功加载自定义字体: {custom_font_families[0]}")
+
+    # 加载默认字体作为后备
     font_relative = r"font/jf-openhuninn/jf-openhuninn-2.1.ttf"
     font_path = os.path.abspath(font_relative)
     if not os.path.exists(font_path):
@@ -542,9 +747,12 @@ def run_auth_flow():
     else:
         font_families = QFontDatabase.applicationFontFamilies(font_id)
         if font_families:
-            font_family = font_families[0]
-            print(f"成功加载字体族: {font_family}")
-            app.setFont(QFont(font_family, 12))
+            default_font_family = font_families[0]
+            print(f"成功加载字体族: {default_font_family}")
+            if font_family:
+                app.setFont(QFont(font_family, font_size))
+            else:
+                app.setFont(QFont(default_font_family, 12))
         else:
             print("字体加载成功但未返回任何字体族")
 
