@@ -735,7 +735,7 @@ def run_auth_flow():
                 print(f"成功加载自定义字体: {custom_font_families[0]}")
 
     # 加载默认字体作为后备
-    font_relative = r"font/jf-openhuninn/jf-openhuninn-2.1.ttf"
+    font_relative = r"font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
     font_path = os.path.abspath(font_relative)
     if not os.path.exists(font_path):
         print(f"字体文件不存在: {font_path}")
