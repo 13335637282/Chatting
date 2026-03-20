@@ -356,7 +356,9 @@
 - `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 - FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
 
-[README](README.md)
-[致谢名单](CREDITS.md)
-[贡献指南](CONTRIBUTING.md)
-[版本命名](VERSIONING.md)
+|           文档            |
+|:-----------------------:|
+| [开发文档](DEVELOPMENT.md)  |
+|   [致谢名单](CREDITS.md)    |
+| [贡献指南](CONTRIBUTING.md) |
+|   [README](README.md)   |

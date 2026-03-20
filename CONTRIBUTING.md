@@ -14,7 +14,10 @@ black, isort。
 ### 警告
 不要试图在代码里混入 病毒、后门
 
-[README](README.md)
-[致谢名单](CREDITS.md)
-[开发文档](DEVELOPMENT.md)
-[版本命名](VERSIONING.md)
+
+|           文档            |
+|:-----------------------:|
+| [开发文档](DEVELOPMENT.md)  |
+|   [致谢名单](CREDITS.md)    |
+| [贡献指南](CONTRIBUTING.md) |
+|   [README](README.md)   |

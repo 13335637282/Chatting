@@ -48,10 +48,6 @@ logging.basicConfig(
 )
 logger.addHandler(logging.FileHandler("server.log"))
 
-@app.route(f"/api/{api_version}/version", methods=["POST"])
-def get_version():
-    return jsonify({"version": ""})
-
 # ---------- 初始化数据库 ----------
 def init_login_db() -> None:
     """初始化一个 login.db 数据库，使用sqlite库创建"""
@@ -246,6 +242,11 @@ def create_user():
 
     if not username or not password:
         return jsonify({"error": "用户名和密码不能为空"}), 400
+    
+    # 验证用户名格式，只允许字母、数字、下划线和中文字符
+    import re
+    if not re.match(r'^[\w\u4e00-\u9fa5]+$', username):
+        return jsonify({"error": "用户名只能包含字母、数字、下划线和中文字符"}), 400
 
     password = ph.hash(password).replace(" ", "")
     conn = get_login_db()
@@ -272,6 +273,11 @@ def create_user():
     conn.close()
 
     return jsonify({"message": "用户创建成功"}), 201
+
+
+@app.route(f"/api/{api_version}/version", methods=["GET"])
+def get_version():
+    return jsonify({"version": ""}), 200
 
 
 @app.route(f"/api/{api_version}/users/<username>", methods=["GET"])
@@ -587,6 +593,11 @@ def create_session():
 
     if not username or not password:
         return jsonify({"error": "用户名和密码不能为空"}), 400
+    
+    # 验证用户名格式，只允许字母、数字、下划线和中文字符
+    import re
+    if not re.match(r'^[\w\u4e00-\u9fa5]+$', username):
+        return jsonify({"error": "用户名只能包含字母、数字、下划线和中文字符"}), 400
 
     conn = get_login_db()
     user = conn.execute(

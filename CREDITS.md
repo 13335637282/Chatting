@@ -66,7 +66,10 @@ No_Bug
 提交 issue、PR 后被处理后会加入制作人员名单 (无用信息除外，如重复问题等)
 
 
-[README](README.md)
-[开发文档](DEVELOPMENT.md)
-[贡献指南](CONTRIBUTING.md)
-[版本命名](VERSIONING.md)
+
+|           文档            |
+|:-----------------------:|
+| [开发文档](DEVELOPMENT.md)  |
+|   [致谢名单](CREDITS.md)    |
+| [贡献指南](CONTRIBUTING.md) |
+|   [README](README.md)   |

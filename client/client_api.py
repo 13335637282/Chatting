@@ -30,7 +30,7 @@ def get_setting(path, default=None):
     Returns:
         配置值或默认值
     """
-    settings_file = "settings.json"
+    settings_file = "./settings.json"
 
     # 如果文件不存在，创建空配置文件
     if not os.path.exists(settings_file):
@@ -75,7 +75,7 @@ def set_setting(path, value):
     Returns:
         bool: 是否设置成功
     """
-    settings_file = "settings.json"
+    settings_file = "./settings.json"
 
     # 读取现有配置
     if os.path.exists(settings_file):
@@ -120,7 +120,7 @@ def rsa_encrypt(bytes_: bytes) -> bytes:
     传入一个 bytes 对象输出一个使用 RSA公钥加密 后的 bytes 对象
     注意输出的 bytes 对象需使用 base64 编码后再和服务器端传输
     """
-    with open(get_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting")), "rb") as fread:
+    with open(get_setting("network.public_key_path"), "rb") as fread:
         pub_key = PublicKey.load_pkcs1(fread.read())
     cipher_bin = rsa.encrypt(bytes_, pub_key)
     return cipher_bin
@@ -148,7 +148,8 @@ def register(username: str, plain_password: str) -> Response:
             f"[注册] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
         )
         return resp
-    except Exception:
+    except Exception as e:
+        logger.error(f"[注册] 发生异常: {str(e)}")
         rep: Response = Response()
         rep.status_code = -1
         return rep
@@ -175,7 +176,8 @@ def login(username: str, plain_password: str) -> Response:
             f"[登录] {username} -> 状态 {resp.status_code}, 响应: {resp.json()}"
         )
         return resp
-    except Exception:
+    except Exception as e:
+        logger.error(f"[登录] 发生异常: {str(e)}")
         rep: Response = Response()
         rep.status_code = -1
         return rep
