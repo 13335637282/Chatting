@@ -1,5 +1,7 @@
 import base64
+import json
 import logging
+import os
 
 import requests  # type: ignore[import-untyped]
 import rsa
@@ -7,7 +9,6 @@ from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 
-BASE_URL = "http://127.0.0.1:5000/api/v1"
 logger = logging.getLogger("client/api")
 logging.basicConfig(
     level=logging.DEBUG,
@@ -19,12 +20,107 @@ logger.addHandler(logging.FileHandler("client.log"))
 __license__ = """Apache License 2.0"""
 
 
+def get_setting(path, default=None):
+    """读取配置文件 settings.json，获取指定路径的值
+
+    Args:
+        path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
+        default: 默认值，如果配置不存在则返回此值
+
+    Returns:
+        配置值或默认值
+    """
+    settings_file = "settings.json"
+
+    # 如果文件不存在，创建空配置文件
+    if not os.path.exists(settings_file):
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump({}, f)
+        return default
+
+    # 读取配置文件
+    try:
+        with open(settings_file, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        # 文件损坏或读取失败，创建新文件
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump({}, f)
+        return default
+
+    # 按路径获取值
+    keys = path.split(".")
+    value = settings
+    for key in keys:
+        if isinstance(value, dict) and key in value:
+            value = value[key]
+        else:
+            return default
+
+    return value
+
+
+def get_base_url():
+    """获取服务器地址"""
+    return get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
+
+
+def set_setting(path, value):
+    """设置配置文件中指定路径的值
+
+    Args:
+        path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
+        value: 要设置的值
+
+    Returns:
+        bool: 是否设置成功
+    """
+    settings_file = "settings.json"
+
+    # 读取现有配置
+    if os.path.exists(settings_file):
+        try:
+            with open(settings_file, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            settings = {}
+    else:
+        settings = {}
+
+    # 按路径设置值
+    keys = path.split(".")
+    current = settings
+    for key in keys[:-1]:
+        if key not in current or not isinstance(current[key], dict):
+            current[key] = {}
+        current = current[key]
+    current[keys[-1]] = value
+
+    # 写入文件
+    try:
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=4, ensure_ascii=False)
+        return True
+    except IOError:
+        return False
+
+def check_server_version():
+    """检测服务器版本"""
+    try:
+        url = f"{get_base_url()}/version"
+        response = requests.get(url, timeout=5)
+        return response
+    except:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
 def rsa_encrypt(bytes_: bytes) -> bytes:
     """
     传入一个 bytes 对象输出一个使用 RSA公钥加密 后的 bytes 对象
     注意输出的 bytes 对象需使用 base64 编码后再和服务器端传输
     """
-    with open("PUBLIC_KEY.chatting", "rb") as fread:
+    with open(get_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting")), "rb") as fread:
         pub_key = PublicKey.load_pkcs1(fread.read())
     cipher_bin = rsa.encrypt(bytes_, pub_key)
     return cipher_bin
@@ -38,7 +134,7 @@ def register(username: str, plain_password: str) -> Response:
     注意：**如果向服务器请求失败，会返回一个状态码为-1的Response对象**
     """
     try:
-        url = f"{BASE_URL}/users"
+        url = f"{get_base_url()}/users"
         logger.debug("[注册] 创建请求体中")
         payload = {
             "username": username,
@@ -66,7 +162,7 @@ def login(username: str, plain_password: str) -> Response:
     """
     try:
         logger.debug("[登录] 创建请求体中...")
-        url = f"{BASE_URL}/sessions"
+        url = f"{get_base_url()}/sessions"
         payload = {
             "username": username,
             "password": base64.b64encode(
@@ -91,7 +187,7 @@ def logout(token) -> Response:
     注意： 如果请求失败会返回一个状态码为 -1 的 Response 对象。
     """
     try:
-        url = f"{BASE_URL}/sessions"
+        url = f"{get_base_url()}/sessions"
         payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
         logger.debug(f"[登出] {token} -> 状态 {resp.status_code}, 响应: {resp.json()}")
@@ -110,7 +206,7 @@ def send_friend_request(
     API POST /friends/requests
     """
     try:
-        url = f"{BASE_URL}/friends/requests"
+        url = f"{get_base_url()}/friends/requests"
         payload = {
             "token": token,
             "friend_username": friend_username,
@@ -132,7 +228,7 @@ def get_incoming_requests(token: str) -> Response:
     API GET /friends/requests/incoming?token=<token>
     """
     try:
-        url = f"{BASE_URL}/friends/requests/incoming"
+        url = f"{get_base_url()}/friends/requests/incoming"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
         logger.debug(f"[获取收到的请求] -> 状态 {resp.status_code}")
@@ -149,7 +245,7 @@ def get_outgoing_requests(token: str) -> Response:
     API GET /friends/requests/outgoing?token=<token>
     """
     try:
-        url = f"{BASE_URL}/friends/requests/outgoing"
+        url = f"{get_base_url()}/friends/requests/outgoing"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
         logger.debug(f"[获取发出的请求] -> 状态 {resp.status_code}")
@@ -166,7 +262,7 @@ def accept_friend_request(token: str, request_id: int) -> Response:
     API POST /friends/requests/<request_id>/accept
     """
     try:
-        url = f"{BASE_URL}/friends/requests/{request_id}/accept"
+        url = f"{get_base_url()}/friends/requests/{request_id}/accept"
         payload = {"token": token}
         resp: Response = requests.post(url, json=payload)
         logger.debug(f"[接受好友请求] {request_id} -> 状态 {resp.status_code}")
@@ -183,7 +279,7 @@ def reject_friend_request(token: str, request_id: int) -> Response:
     API POST /friends/requests/<request_id>/reject
     """
     try:
-        url = f"{BASE_URL}/friends/requests/{request_id}/reject"
+        url = f"{get_base_url()}/friends/requests/{request_id}/reject"
         payload = {"token": token}
         resp: Response = requests.post(url, json=payload)
         logger.debug(f"[拒绝好友请求] {request_id} -> 状态 {resp.status_code}")
@@ -200,7 +296,7 @@ def get_friends_list(token: str) -> Response:
     API GET /friends?token=<token>
     """
     try:
-        url = f"{BASE_URL}/friends"
+        url = f"{get_base_url()}/friends"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
         logger.debug(f"[获取好友列表] -> 状态 {resp.status_code}")
@@ -217,7 +313,7 @@ def remove_friend(token: str, friend_username: int) -> Response:
     API DELETE /friends/<friend_username>
     """
     try:
-        url = f"{BASE_URL}/friends/{friend_username}"
+        url = f"{get_base_url()}/friends/{friend_username}"
         payload = {"token": token}
         resp: Response = requests.delete(url, json=payload)
         logger.debug(f"[删除好友] {friend_username} -> 状态 {resp.status_code}")
@@ -242,7 +338,7 @@ def get_user_info(token: str, username: str) -> Response:
         如果是非好友，返回403错误
     """
     try:
-        url = f"{BASE_URL}/users/{username}"
+        url = f"{get_base_url()}/users/{username}"
         params = {"token": token}
         resp: Response = requests.get(url, params=params)
         logger.debug(f"[获取用户信息] {username} -> 状态 {resp.status_code}")
@@ -274,7 +370,7 @@ def update_user_profile(token: str, username: str, **kwargs) -> Response:
         update_user_profile(token, "alice", nickname="爱丽丝", bio="Hello World")
     """
     try:
-        url = f"{BASE_URL}/users/{username}/profile"
+        url = f"{get_base_url()}/users/{username}/profile"
         payload = {"token": token}
         # 添加所有提供的资料字段
         for key, value in kwargs.items():
@@ -306,7 +402,7 @@ def rename_user(token: str, old_username: str, new_username: str) -> Response:
         当前的token仍然有效（会自动关联到新用户名）
     """
     try:
-        url = f"{BASE_URL}/users/{old_username}/rename"
+        url = f"{get_base_url()}/users/{old_username}/rename"
         payload = {"token": token, "new_username": new_username}
         logger.debug(f"[修改用户名] {old_username} -> {new_username}")
         resp: Response = requests.put(url, json=payload)
@@ -336,7 +432,7 @@ def search_users(token: str, query: str) -> Response:
         搜索结果不包含自己，最多返回50个结果
     """
     try:
-        url = f"{BASE_URL}/users/search"
+        url = f"{get_base_url()}/users/search"
         params = {"token": token, "q": query}
         logger.debug(f"[搜索用户] 关键词: {query}")
         resp: Response = requests.get(url, params=params)

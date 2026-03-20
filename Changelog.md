@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.6] - 2025-03-20
+
+### Added
+- 网络设置，可配置服务器地址
+
+### Changed
+- 目录的结构，现在Client, Server 目录被分开，以便开发。
+- [BREAKING CHANGE] api health 的返回体的 error 关键字改名为 msg
+
 ## [0.1.5] - 2026-03-20
 
 ### Removed

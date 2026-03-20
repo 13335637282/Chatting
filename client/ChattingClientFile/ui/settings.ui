@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <property name="tabBarAutoHide">
       <bool>true</bool>
@@ -37,8 +37,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>512</width>
-            <height>295</height>
+            <width>540</width>
+            <height>310</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_6">
@@ -149,7 +149,173 @@
            <item>
             <spacer name="verticalSpacer">
              <property name="orientation">
-              <enum>Qt::Vertical</enum>
+              <enum>Qt::Orientation::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_network">
+      <attribute name="title">
+       <string>网络</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_network">
+       <item>
+        <widget class="QScrollArea" name="scrollArea_network">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="scrollAreaWidgetContents_network">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>540</width>
+            <height>310</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_network_content">
+           <item>
+            <widget class="QFrame" name="network_frame">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_network_settings">
+              <item>
+               <widget class="QLabel" name="network_label">
+                <property name="text">
+                 <string>网络设置</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_public_key">
+                <item>
+                 <widget class="QLabel" name="public_key_label">
+                  <property name="text">
+                   <string>公钥目录：</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="public_key_edit">
+                  <property name="placeholderText">
+                   <string>输入公钥文件路径</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="select_public_key_button">
+                  <property name="text">
+                   <string>浏览</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_server_url">
+                <item>
+                 <widget class="QLabel" name="server_url_label">
+                  <property name="text">
+                   <string>服务器地址：</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="server_url_edit">
+                  <property name="placeholderText">
+                   <string>http://127.0.0.1:5000/api/v1</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_update_server">
+                <item>
+                 <widget class="QLabel" name="update_server_label">
+                  <property name="text">
+                   <string>更新服务器：</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="update_server_edit">
+                  <property name="placeholderText">
+                   <string>http://127.0.0.1:5000/update</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QPushButton" name="check_server_version_button">
+                <property name="text">
+                 <string>检测服务器版本</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="check_client_version_button">
+                <property name="text">
+                 <string>检测客户端版本</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="update_client_button">
+                <property name="text">
+                 <string>更新客户端</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QFrame" name="buttons">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::StyledPanel</enum>
+                </property>
+                <property name="frameShadow">
+                 <enum>QFrame::Shadow::Raised</enum>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_3">
+                 <item>
+                  <widget class="QPushButton" name="ok_button">
+                   <property name="text">
+                    <string>应用</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="cancel_button">
+                   <property name="text">
+                    <string>取消</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer_network">
+             <property name="orientation">
+              <enum>Qt::Orientation::Vertical</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -180,8 +346,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>512</width>
-            <height>295</height>
+            <width>540</width>
+            <height>310</height>
            </rect>
           </property>
          </widget>
@@ -204,8 +370,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>512</width>
-            <height>295</height>
+            <width>540</width>
+            <height>310</height>
            </rect>
           </property>
          </widget>

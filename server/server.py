@@ -48,6 +48,9 @@ logging.basicConfig(
 )
 logger.addHandler(logging.FileHandler("server.log"))
 
+@app.route(f"/api/{api_version}/version", methods=["POST"])
+def get_version():
+    return jsonify({"version": ""})
 
 # ---------- 初始化数据库 ----------
 def init_login_db() -> None:
@@ -135,12 +138,12 @@ def create_rsa_key() -> None:
     如果 RSA 公私钥不存在 则自动生成
     """
     logger.info("正在检测是否有公私钥中...")
-    if not os.path.exists("PUBLIC_KEY.chatting") and not os.path.exists(
-        "PRIVATE_KEY.chatting"
+    if not os.path.exists("../client/PUBLIC_KEY.chatting") and not os.path.exists(
+            "PRIVATE_KEY.chatting"
     ):
         logger.info("未检测到有公钥和私钥，正在自动生成。")
         public_key, private_key = rsa.newkeys(2048 * 2)
-        with open("PUBLIC_KEY.chatting", "wb") as f:
+        with open("../client/PUBLIC_KEY.chatting", "wb") as f:
             f.write(public_key.save_pkcs1())
         with open("PRIVATE_KEY.chatting", "wb") as f:
             f.write(private_key.save_pkcs1())
@@ -1008,7 +1011,7 @@ def health():
     """
     检查与服务器的链接 (api GET /health)
     """
-    return jsonify({"error": "ok"}), 200
+    return jsonify({"msg": "ok"}), 200
 
 
 if __name__ == "__main__":

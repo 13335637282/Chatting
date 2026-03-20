@@ -593,7 +593,7 @@ class VersioningUI(QMainWindow):
     
     def save_changelog(self):
         changelog = self.textEdit_changelog.toPlainText()
-        file_path, _ = QFileDialog.getSaveFileName(self, "保存 Changelog", "Changelog.md", "Markdown Files (*.md)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "保存 Changelog", "../Changelog.md", "Markdown Files (*.md)")
         if file_path:
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:

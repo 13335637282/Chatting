@@ -1,10 +1,7 @@
-import json
 import os
 import sys
-import threading
-from threading import Thread
 
-import schedule
+import requests
 from PySide6.QtCore import QFile, QStringListModel, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette
 from PySide6.QtUiTools import QUiLoader
@@ -15,7 +12,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QCommandLinkButton,
                                QRadioButton, QScrollArea, QSpinBox,
                                QTextBrowser, QToolButton, QVBoxLayout, QWidget)
 
-import add_friend
+from client import add_friend
 import friend_request_widget
 import request_manage
 import search_users_ui
@@ -23,7 +20,7 @@ import settings
 from client_api import (accept_friend_request, get_friends_list,
                         get_incoming_requests, get_outgoing_requests, login,
                         logout, register, reject_friend_request, search_users,
-                        send_friend_request)
+                        send_friend_request, get_setting, set_setting, check_server_version)
 
 print("""
  ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗ 
@@ -45,86 +42,7 @@ _/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/
 # 全局任务队列（所有操作在主线程处理，故无需锁）
 task = []
 
-
-def get_setting(path, default=None):
-    """读取配置文件 settings.json，获取指定路径的值
-
-    Args:
-        path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
-        default: 默认值，如果配置不存在则返回此值
-
-    Returns:
-        配置值或默认值
-    """
-    settings_file = "settings.json"
-
-    # 如果文件不存在，创建空配置文件
-    if not os.path.exists(settings_file):
-        with open(settings_file, "w", encoding="utf-8") as f:
-            json.dump({}, f)
-        return default
-
-    # 读取配置文件
-    try:
-        with open(settings_file, "r", encoding="utf-8") as f:
-            settings = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        # 文件损坏或读取失败，创建新文件
-        with open(settings_file, "w", encoding="utf-8") as f:
-            json.dump({}, f)
-        return default
-
-    # 按路径获取值
-    keys = path.split(".")
-    value = settings
-    for key in keys:
-        if isinstance(value, dict) and key in value:
-            value = value[key]
-        else:
-            return default
-
-    return value
-
-
-def set_setting(path, value):
-    """设置配置文件中指定路径的值
-
-    Args:
-        path: 配置项路径，支持点号分隔的嵌套路径，如 "user.name"
-        value: 要设置的值
-
-    Returns:
-        bool: 是否设置成功
-    """
-    settings_file = "settings.json"
-
-    # 读取现有配置
-    if os.path.exists(settings_file):
-        try:
-            with open(settings_file, "r", encoding="utf-8") as f:
-                settings = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            settings = {}
-    else:
-        settings = {}
-
-    # 按路径设置值
-    keys = path.split(".")
-    current = settings
-    for key in keys[:-1]:
-        if key not in current or not isinstance(current[key], dict):
-            current[key] = {}
-        current = current[key]
-    current[keys[-1]] = value
-
-    # 写入文件
-    try:
-        with open(settings_file, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=4, ensure_ascii=False)
-        return True
-    except IOError:
-        return False
-
+version = get_setting("version")
 
 def show_api_error(parent, context, response):
     """统一显示API错误信息"""
@@ -323,7 +241,7 @@ class LoginWindow(RegLogWindow):
     def __init__(self):
         super().__init__()
         loader = QUiLoader()
-        ui_file = QFile("login.ui")
+        ui_file = QFile("ChattingClientFile/ui/login.ui")
         self.window = loader.load(ui_file)
         ui_file.close()
 
@@ -358,7 +276,7 @@ class RegisterWindow(RegLogWindow):
     def __init__(self):
         super().__init__()
         loader = QUiLoader()
-        ui_file = QFile("register.ui")
+        ui_file = QFile("ChattingClientFile/ui/register.ui")
         self.window = loader.load(ui_file)
         ui_file.close()
 
@@ -442,6 +360,17 @@ class SettingsDialog(QDialog):
         self.apply_font_button = self.findChild(QPushButton, "apply_font_button")
         self.select_font_file_button = self.findChild(QPushButton, "select_font_file_button")
 
+        # 网络相关控件
+        self.public_key_edit = self.findChild(QLineEdit, "public_key_edit")
+        self.select_public_key_button = self.findChild(QPushButton, "select_public_key_button")
+        self.server_url_edit = self.findChild(QLineEdit, "server_url_edit")
+        self.update_server_edit = self.findChild(QLineEdit, "update_server_edit")
+        self.check_server_version_button = self.findChild(QPushButton, "check_server_version_button")
+        self.check_client_version_button = self.findChild(QPushButton, "check_client_version_button")
+        self.update_client_button = self.findChild(QPushButton, "update_client_button")
+        self.ok_button = self.findChild(QPushButton, "ok_button")
+        self.cancel_button = self.findChild(QPushButton, "cancel_button")
+
         # 关于标签页控件
         self.credits_text_browser = self.findChild(QTextBrowser, "credits_text_browser")
 
@@ -459,6 +388,28 @@ class SettingsDialog(QDialog):
         self.dark_theme_radio.toggled.connect(self.on_theme_changed)
         self.apply_font_button.clicked.connect(self.apply_font)
         self.select_font_file_button.clicked.connect(self.select_font_file)
+        self.select_public_key_button.clicked.connect(self.select_public_key)
+        self.check_server_version_button.clicked.connect(self.check_server_version)
+        self.check_client_version_button.clicked.connect(self.check_client_version)
+        self.update_client_button.clicked.connect(self.update_client)
+        self.ok_button.clicked.connect(self.apply_net_settings)
+
+    def apply_net_settings(self):
+        reply = QMessageBox.warning(None, "警告", "如果贸然修改此设置可能会导致无法登录，以至于无法重新设置，除非手动修改 settings 文件。你确定要修改么？", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            set_setting("network.public_key_path", self.public_key_edit.text())
+            set_setting("network.server_url", self.server_url_edit.text())
+            set_setting("network.update_server_url", self.update_server_edit.text())
+        else:
+            print("用户选择了否。")
+
+    def cancel_net_settings(self):
+        # 加载网络设置
+        if get_setting("network.public_key_path", "") == "":
+            set_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting"))
+        self.public_key_edit.setText(get_setting("network.public_key_path", ""))
+        self.server_url_edit.setText(get_setting("network.server_url", "http://127.0.0.1:5000/api/v1"))
+        self.update_server_edit.setText(get_setting("network.update_server_url", "http://127.0.0.1:5000/update"))
 
     def load_settings(self):
         """从配置文件加载设置"""
@@ -479,6 +430,17 @@ class SettingsDialog(QDialog):
                 self.font_family_combo.setCurrentIndex(index)
 
         self.font_size_spin.setValue(font_size)
+
+        # 加载网络设置
+        if get_setting("network.public_key_path", "")== "":
+            set_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting"))
+        public_key_path = get_setting("network.public_key_path", "")
+        server_url = get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
+        update_server_url = get_setting("network.update_server_url", "http://127.0.0.1:5000/update")
+
+        self.public_key_edit.setText(public_key_path)
+        self.server_url_edit.setText(server_url)
+        self.update_server_edit.setText(update_server_url)
 
     def load_fonts(self):
         """加载系统可用字体"""
@@ -523,7 +485,7 @@ class SettingsDialog(QDialog):
 
     def load_credits(self):
         """加载并显示 CREDITS.md 内容"""
-        credits_file = "CREDITS.md"
+        credits_file = "../CREDITS.md"
         if not os.path.exists(credits_file):
             self.credits_text_browser.setMarkdown("# 致谢\n\n未找到 CREDITS.md 文件")
             return
@@ -585,6 +547,80 @@ class SettingsDialog(QDialog):
         # 保存设置
         set_setting("font.family", font_family)
         set_setting("font.size", font_size)
+    
+    def select_public_key(self):
+        """选择公钥文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "选择公钥文件", "", "公钥文件 (*.chatting);;所有文件 (*.*)"
+        )
+        if file_path:
+            self.public_key_edit.setText(file_path)
+
+    def check_server_version(self):
+        rep = check_server_version()
+        if rep.status_code == 200:
+            QMessageBox.information(self,"服务器版本",f"服务器版本: {rep.json().get('version')}")
+
+    def check_client_version(self):
+        """检测客户端版本"""
+        QMessageBox.information(self, "客户端版本", f"客户端版本: {version}")
+    
+    def update_client(self):
+        """更新客户端"""
+        update_server = self.update_server_edit.text()
+        if not update_server:
+            QMessageBox.warning(self, "警告", "请输入更新服务器地址")
+            return
+        
+        try:
+            # 尝试从更新服务器获取最新版本
+            # 假设更新服务器有一个 /latest 接口
+            url = f"{update_server}/latest"
+            response = requests.get(url, timeout=5)
+            
+            if response.status_code == 200:
+                update_data = response.json()
+                latest_version = update_data.get('version', '未知')
+                download_url = update_data.get('download_url', '')
+                
+                if download_url:
+                    reply = QMessageBox.question(
+                        self, "更新客户端", 
+                        f"发现新版本: {latest_version}\n是否下载更新?",
+                        QMessageBox.Yes | QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.Yes:
+                        QMessageBox.information(self, "提示", f"正在下载更新，请稍候...\n下载地址: {download_url}")
+                        # 这里可以添加下载和安装更新的逻辑
+                else:
+                    QMessageBox.warning(self, "警告", "未找到更新下载地址")
+            else:
+                QMessageBox.warning(self, "警告", f"无法获取更新信息，状态码: {response.status_code}")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"连接更新服务器失败: {str(e)}")
+    
+    def accept(self):
+        """确认按钮点击事件"""
+        # 保存网络设置
+        public_key_path = self.public_key_edit.text()
+        server_url = self.server_url_edit.text()
+        update_server_url = self.update_server_edit.text()
+        
+        print(f"保存网络设置: public_key_path={public_key_path}, server_url={server_url}, update_server_url={update_server_url}")
+        
+        # 保存网络设置
+        set_setting("network.public_key_path", public_key_path)
+        set_setting("network.server_url", server_url)
+        set_setting("network.update_server_url", update_server_url)
+        
+        # 保存其他设置
+        set_setting("network.public_key_path", self.public_key_edit.text())
+        set_setting("network.server_url", self.server_url_edit.text())
+        set_setting("network.update_server_url", self.update_server_edit.text())
+        print("设置保存完成")
+        
+        super().accept()
 
 
 class ChattingMainWindow(QMainWindow):
@@ -593,10 +629,8 @@ class ChattingMainWindow(QMainWindow):
         self.password = password
         self.user_name = user_name
         self.token = token
-        self.state = ""  # 用于标记退出方式
-
         loader = QUiLoader()
-        ui_file = QFile("chatting_main.ui")
+        ui_file = QFile("ChattingClientFile/ui/chatting_main.ui")
         self.window = loader.load(ui_file)
         ui_file.close()
 
@@ -644,6 +678,7 @@ class ChattingMainWindow(QMainWindow):
         dialog.exec()
 
     def open_settings(self):
+        # 使用本地定义的 SettingsDialog 类
         dialog = SettingsDialog()
         dialog.exec()
 
@@ -684,7 +719,6 @@ class ChattingMainWindow(QMainWindow):
 
 def restart_application():
     """重启应用程序：关闭所有窗口并重新启动程序"""
-    import subprocess
     import sys
 
     # 关闭所有窗口
@@ -700,7 +734,7 @@ def restart_application():
 def run_auth_flow():
     """运行登录/注册认证流程"""
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setWindowIcon(QIcon("ico/ico.png"))
+    app.setWindowIcon(QIcon("ChattingClientFile/ico/ico.png"))
 
     # 加载并应用主题设置
     theme = get_setting("theme", "light")
@@ -735,7 +769,7 @@ def run_auth_flow():
                 print(f"成功加载自定义字体: {custom_font_families[0]}")
 
     # 加载默认字体作为后备
-    font_relative = r"font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
+    font_relative = r"./ChattingClientFile/font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
     font_path = os.path.abspath(font_relative)
     if not os.path.exists(font_path):
         print(f"字体文件不存在: {font_path}")
