@@ -5,7 +5,6 @@ import os
 
 import requests  # type: ignore[import-untyped]
 import rsa
-from argon2 import PasswordHasher
 from requests.models import Response  # type: ignore[import-untyped]
 from rsa import PublicKey
 
@@ -120,7 +119,7 @@ def rsa_encrypt(bytes_: bytes) -> bytes:
     传入一个 bytes 对象输出一个使用 RSA公钥加密 后的 bytes 对象
     注意输出的 bytes 对象需使用 base64 编码后再和服务器端传输
     """
-    with open(get_setting("network.public_key_path"), "rb") as fread:
+    with open(get_setting("network.public_key_path", os.path.abspath("./PUBLIC_KEY.chatting")), "rb") as fread:
         pub_key = PublicKey.load_pkcs1(fread.read())
     cipher_bin = rsa.encrypt(bytes_, pub_key)
     return cipher_bin
@@ -441,6 +440,96 @@ def search_users(token: str, query: str) -> Response:
         logger.debug(
             f"[搜索用户] -> 状态 {resp.status_code}, 找到: {len(resp.json().get('users', [])) if resp.status_code == 200 else 0} 个用户"
         )
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def send_message(token: str, to_username: str, content: str) -> Response:
+    """
+    发送消息
+    API POST /messages
+
+    参数:
+        token: 当前登录用户的token
+        to_username: 接收者用户名
+        content: 消息内容
+
+    返回:
+        成功: {"message": "消息发送成功"}
+        失败: {"error": "错误信息"}
+    """
+    try:
+        url = f"{get_base_url()}/messages"
+        payload = {
+            "token": token,
+            "to_username": to_username,
+            "content": content
+        }
+        logger.debug(f"[发送消息] 发送给: {to_username}, 内容: {content}")
+        resp: Response = requests.post(url, json=payload)
+        logger.debug(f"[发送消息] -> 状态 {resp.status_code}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def get_messages(token: str) -> Response:
+    """
+    获取未读消息
+    API GET /messages?token=<token>
+
+    参数:
+        token: 当前登录用户的token
+
+    返回:
+        {
+            "messages": [
+                {
+                    "id": 1,
+                    "from_username": "sender",
+                    "content": "消息内容",
+                    "created_at": "2023-01-01 12:00:00"
+                }
+            ]
+        }
+    """
+    try:
+        url = f"{get_base_url()}/messages"
+        params = {"token": token}
+        logger.debug("[获取消息] 请求中...")
+        resp: Response = requests.get(url, params=params)
+        logger.debug(f"[获取消息] -> 状态 {resp.status_code}, 消息数量: {len(resp.json().get('messages', [])) if resp.status_code == 200 else 0}")
+        return resp
+    except Exception:
+        rep: Response = Response()
+        rep.status_code = -1
+        return rep
+
+
+def delete_message(token: str, message_id: int) -> Response:
+    """
+    删除消息
+    API DELETE /messages/<message_id>
+
+    参数:
+        token: 当前登录用户的token
+        message_id: 消息ID
+
+    返回:
+        成功: {"message": "消息删除成功"}
+        失败: {"error": "错误信息"}
+    """
+    try:
+        url = f"{get_base_url()}/messages/{message_id}"
+        payload = {"token": token}
+        logger.debug(f"[删除消息] ID: {message_id}")
+        resp: Response = requests.delete(url, json=payload)
+        logger.debug(f"[删除消息] -> 状态 {resp.status_code}")
         return resp
     except Exception:
         rep: Response = Response()

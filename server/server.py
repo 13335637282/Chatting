@@ -123,10 +123,40 @@ def init_user_profile_db() -> None:
     conn.close()
 
 
+def init_messages_db() -> None:
+    """初始化消息数据库"""
+    conn = sqlite3.connect("messages.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            from_username TEXT NOT NULL,
+            to_username TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'pending',  -- pending, delivered
+            FOREIGN KEY (from_username) REFERENCES users(username) ON DELETE CASCADE,
+            FOREIGN KEY (to_username) REFERENCES users(username) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def get_messages_db() -> sqlite3.Connection:
+    """
+    获取messages.db的sqlite3 Connection 对象
+    """
+    conn = sqlite3.connect("messages.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 init_friend_db()
 init_login_db()
 init_friend_requests_db()
 init_user_profile_db()
+init_messages_db()
 
 
 def create_rsa_key() -> None:
@@ -277,7 +307,7 @@ def create_user():
 
 @app.route(f"/api/{api_version}/version", methods=["GET"])
 def get_version():
-    return jsonify({"version": ""}), 200
+    return jsonify({"version": "0.2.0"}), 200
 
 
 @app.route(f"/api/{api_version}/users/<username>", methods=["GET"])
@@ -1023,6 +1053,156 @@ def health():
     检查与服务器的链接 (api GET /health)
     """
     return jsonify({"msg": "ok"}), 200
+
+
+@app.route(f"/api/{api_version}/messages", methods=["POST"])
+def send_message():
+    """
+    发送消息
+    API POST /messages
+    请求体: {
+        "token": "用户token",
+        "to_username": "接收者用户名",
+        "content": "消息内容"
+    }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体必须为JSON"}), 400
+
+    token = data.get("token")
+    to_username = data.get("to_username")
+    content = data.get("content")
+
+    if not token or not to_username or not content:
+        return jsonify({"error": "token、接收者用户名和消息内容不能为空"}), 400
+
+    # 验证token
+    is_valid, from_username = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 验证接收者是否存在
+    conn_login = get_login_db()
+    recipient_exists = conn_login.execute(
+        "SELECT username FROM users WHERE username = ?", (to_username,)
+    ).fetchone()
+    conn_login.close()
+
+    if not recipient_exists:
+        return jsonify({"error": "接收者不存在"}), 404
+
+    # 验证是否为好友
+    if not are_friends(from_username, to_username):
+        return jsonify({"error": "只能向好友发送消息"}), 403
+
+    # 发送消息
+    conn = get_messages_db()
+    try:
+        conn.execute(
+            "INSERT INTO messages (from_username, to_username, content) VALUES (?, ?, ?)",
+            (from_username, to_username, content)
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        logger.error(f"发送消息失败: {str(e)}")
+        return jsonify({"error": "发送消息失败"}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"message": "消息发送成功"}), 201
+
+
+@app.route(f"/api/{api_version}/messages", methods=["GET"])
+def get_messages():
+    """
+    获取未读消息
+    API GET /messages?token=<token>
+    """
+    token = request.args.get("token")
+    if not token:
+        return jsonify({"error": "缺少token参数"}), 400
+
+    is_valid, username = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 获取未读消息
+    conn = get_messages_db()
+    messages = conn.execute(
+        """
+        SELECT id, from_username, content, created_at 
+        FROM messages 
+        WHERE to_username = ? AND status = 'pending' 
+        ORDER BY created_at ASC
+        """,
+        (username,)
+    ).fetchall()
+
+    # 标记为已送达
+    message_ids = [msg["id"] for msg in messages]
+    if message_ids:
+        conn.execute(
+            "UPDATE messages SET status = 'delivered' WHERE id IN (" + ",".join(["?"]*len(message_ids)) + ")",
+            message_ids
+        )
+        conn.commit()
+
+    conn.close()
+
+    # 构建返回结果
+    result = []
+    for msg in messages:
+        result.append({
+            "id": msg["id"],
+            "from_username": msg["from_username"],
+            "content": msg["content"],
+            "created_at": msg["created_at"]
+        })
+
+    return jsonify({"messages": result}), 200
+
+
+@app.route(f"/api/{api_version}/messages/<int:message_id>", methods=["DELETE"])
+def delete_message(message_id):
+    """
+    删除消息（从服务器删除已送达的消息）
+    API DELETE /messages/<message_id>
+    请求体: {
+        "token": "用户token"
+    }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体必须为JSON"}), 400
+
+    token = data.get("token")
+    if not token:
+        return jsonify({"error": "缺少token参数"}), 400
+
+    is_valid, username = verify_token(token)
+    if not is_valid:
+        return jsonify({"error": "token无效或已过期"}), 401
+
+    # 验证消息是否存在且属于当前用户
+    conn = get_messages_db()
+    message = conn.execute(
+        "SELECT id FROM messages WHERE id = ? AND to_username = ? AND status = 'delivered'",
+        (message_id, username)
+    ).fetchone()
+
+    if not message:
+        conn.close()
+        return jsonify({"error": "消息不存在或无权删除"}), 404
+
+    # 删除消息
+    conn.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "消息删除成功"}), 200
 
 
 if __name__ == "__main__":
