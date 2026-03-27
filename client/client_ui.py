@@ -87,38 +87,50 @@ class RequestWidget(QWidget):
         content,
         request_id=None,
         state=None,
-        parent: FriendRequestManageDialog_ = None,
+        parent: FriendRequestManageDialog_ | None = None,
     ):
         super().__init__()
         self.token = token
         self.username = username
         self.content = content
         self.request_id = request_id
-        self.parent = parent
+        self._parent = parent
         friend_request_widget.Ui_Form().setupUi(self)
 
         # 设置显示内容
-        self.findChild(QFrame, "frame_3").findChild(QLabel, "label").setText(username)
-        self.findChild(QFrame, "frame_3").findChild(QLabel, "label_2").setText(content)
+        frame_3 = self.findChild(QFrame, "frame_3")
+        if frame_3:
+            label = frame_3.findChild(QLabel, "label")
+            if label:
+                label.setText(username)
+            label_2 = frame_3.findChild(QLabel, "label_2")
+            if label_2:
+                label_2.setText(content)
 
         if request_id:
             self.accept_button = self.findChild(QToolButton, "toolButton")
             self.reject_button = self.findChild(QToolButton, "toolButton_2")
-            self.accept_button.clicked.connect(self.accept_request)
-            self.reject_button.clicked.connect(self.reject_request)
+            if self.accept_button:
+                self.accept_button.clicked.connect(self.accept_request)
+            if self.reject_button:
+                self.reject_button.clicked.connect(self.reject_request)
         else:
             # 已处理请求（仅展示状态）
             self.accept_button = self.findChild(QToolButton, "toolButton")
-            self.accept_button.setEnabled(False)
-            self.accept_button.setText(state)
-            self.findChild(QToolButton, "toolButton_2").setEnabled(False)
-            self.findChild(QToolButton, "toolButton_2").hide()
+            if self.accept_button:
+                self.accept_button.setEnabled(False)
+                self.accept_button.setText(state)
+            tool_button_2 = self.findChild(QToolButton, "toolButton_2")
+            if tool_button_2:
+                tool_button_2.setEnabled(False)
+                tool_button_2.hide()
 
     def accept_request(self):
         response = accept_friend_request(self.token, self.request_id)
         if response.status_code == 200:
             task.append("reload_friends_list")
-            self.parent.reload_requests()
+            if self._parent:
+                self._parent.reload_requests()
         else:
             show_api_error(self, "接受好友请求", response)
 
@@ -126,7 +138,8 @@ class RequestWidget(QWidget):
         response = reject_friend_request(self.token, self.request_id)
         if response.status_code == 200:
             task.append("reload_friends_list")
-            self.parent.reload_requests()
+            if self._parent:
+                self._parent.reload_requests()
         else:
             show_api_error(self, "拒绝好友请求", response)
 

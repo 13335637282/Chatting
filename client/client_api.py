@@ -3,9 +3,9 @@ import json
 import logging
 import os
 
-import requests  # type: ignore[import-untyped]
+import requests
 import rsa
-from requests.models import Response  # type: ignore[import-untyped]
+from requests.models import Response
 from rsa import PublicKey
 
 logger = logging.getLogger("client/api")
@@ -19,7 +19,9 @@ logger.addHandler(logging.FileHandler("client.log"))
 __license__ = """Apache License 2.0"""
 
 
-def get_setting(path, default=None):
+from typing import Any
+
+def get_setting(path: str, default: Any = None) -> Any:
     """读取配置文件 settings.json，获取指定路径的值
 
     Args:
@@ -64,7 +66,7 @@ def get_base_url():
     return get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
 
 
-def set_setting(path, value):
+def set_setting(path: str, value: Any) -> bool:
     """设置配置文件中指定路径的值
 
     Args:
@@ -110,9 +112,9 @@ def check_server_version():
         response = requests.get(url, timeout=5)
         return response
     except:
-        rep: Response = Response()
-        rep.status_code = -1
-        return rep
+        reps = Response()
+        reps.status_code = -1
+        return reps
 
 def rsa_encrypt(bytes_: bytes) -> bytes:
     """
@@ -182,7 +184,7 @@ def login(username: str, plain_password: str) -> Response:
         return rep
 
 
-def logout(token) -> Response:
+def logout(token: str) -> Response:
     """
     传入一个 token 服务器将会删除这个token。
     注意： 如果请求失败会返回一个状态码为 -1 的 Response 对象。
