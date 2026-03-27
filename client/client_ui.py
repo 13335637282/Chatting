@@ -1,52 +1,57 @@
+"""
+ ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗
+██╔════╝██║  ██║██╔══██╗╚══██╔══╝╚══██╔══╝██║████╗  ██║██╔════╝
+██║     ███████║███████║   ██║      ██║   ██║██╔██╗ ██║██║  ███╗
+██║     ██╔══██║██╔══██║   ██║      ██║   ██║██║╚██╗██║██║   ██║
+╚██████╗██║  ██║██║  ██║   ██║      ██║   ██║██║ ╚████║╚██████╔╝
+ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚═╝╚═╝  ╚═══╝ ╚═════╝
+
+     _/_/_/  _/                    _/      _/      _/
+  _/        _/_/_/      _/_/_/  _/_/_/_/_/_/_/_/      _/_/_/      _/_/_/
+ _/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/
+_/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/
+ _/_/_/  _/    _/    _/_/_/      _/_/    _/_/  _/  _/    _/    _/_/_/
+                                                                  _/
+                                                             _/_/
+"""
+
 import json
 import os
 import sys
 from datetime import datetime
-
-import requests
-from PySide6.QtCore import QFile, QStringListModel, Qt, QTimer, QSize, QPointF
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette, QStandardItemModel, QStandardItem, QPixmap, QPainter
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import (QApplication, QComboBox, QCommandLinkButton,
-                               QDialog, QDockWidget, QFileDialog, QFrame,
-                               QLabel, QLineEdit, QListView, QMainWindow,
-                               QMessageBox, QPlainTextEdit, QPushButton,
-                               QRadioButton, QScrollArea, QSpinBox,
-                               QTextBrowser, QToolButton, QVBoxLayout, QHBoxLayout, QWidget, QTextEdit, QListWidget,
-                               QListWidgetItem, QTabWidget)
+from http import HTTPStatus
 
 import add_friend
 import friend_request_widget
 import request_manage
 import search_users_ui
 import settings
-from client_api import (accept_friend_request, get_friends_list,
-                        get_incoming_requests, get_outgoing_requests, login,
-                        logout, register, reject_friend_request, search_users,
-                        send_friend_request, get_setting, set_setting, check_server_version,
-                        send_message, get_messages, delete_message, get_user_info, update_user_profile)
-
-print("""
- ██████╗██╗  ██╗ █████╗ ████████╗████████╗██╗███╗   ██╗ ██████╗ 
-██╔════╝██║  ██║██╔══██╗╚══██╔══╝╚══██╔══╝██║████╗  ██║██╔════╝ 
-██║     ███████║███████║   ██║      ██║   ██║██╔██╗ ██║██║  ███╗
-██║     ██╔══██║██╔══██║   ██║      ██║   ██║██║╚██╗██║██║   ██║
-╚██████╗██║  ██║██║  ██║   ██║      ██║   ██║██║ ╚████║╚██████╔╝
- ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚═╝╚═╝  ╚═══╝ ╚═════╝ 
-
-     _/_/_/  _/                    _/      _/      _/                      
-  _/        _/_/_/      _/_/_/  _/_/_/_/_/_/_/_/      _/_/_/      _/_/_/   
- _/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/    
-_/        _/    _/  _/    _/    _/      _/      _/  _/    _/  _/    _/     
- _/_/_/  _/    _/    _/_/_/      _/_/    _/_/  _/  _/    _/    _/_/_/      
-                                                                  _/       
-                                                             _/_/          
-""")
+from client_api import (accept_friend_request, check_server_version,
+                        delete_message, get_friends_list,
+                        get_incoming_requests, get_messages,
+                        get_outgoing_requests, get_setting, get_user_info,
+                        login, logout, register, reject_friend_request,
+                        search_users, send_friend_request, send_message,
+                        set_setting, update_user_profile)
+from PySide6.QtCore import QFile, QPointF, QSize, QStringListModel, Qt, QTimer
+from PySide6.QtGui import (QColor, QFont, QFontDatabase, QIcon,
+                           QPainter, QPalette, QPixmap, QStandardItem,
+                           QStandardItemModel)
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import (QApplication, QComboBox, QCommandLinkButton,
+                               QDialog, QDockWidget, QFileDialog, QFrame,
+                               QHBoxLayout, QLabel, QLineEdit, QListView,
+                               QListWidget, QListWidgetItem, QMainWindow,
+                               QMessageBox, QPlainTextEdit, QPushButton,
+                               QRadioButton, QScrollArea, QSpinBox,
+                               QTabWidget, QTextBrowser, QTextEdit,
+                               QToolButton, QVBoxLayout, QWidget)
 
 # 全局任务队列（所有操作在主线程处理，故无需锁）
 task = []
 
 version = get_setting("version")
+
 
 def show_api_error(parent, context, response):
     """统一显示API错误信息"""
@@ -127,7 +132,7 @@ class RequestWidget(QWidget):
 
     def accept_request(self):
         response = accept_friend_request(self.token, self.request_id)
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             task.append("reload_friends_list")
             if self._parent:
                 self._parent.reload_requests()
@@ -136,7 +141,7 @@ class RequestWidget(QWidget):
 
     def reject_request(self):
         response = reject_friend_request(self.token, self.request_id)
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             task.append("reload_friends_list")
             if self._parent:
                 self._parent.reload_requests()
@@ -152,7 +157,11 @@ class FriendRequestManageDialog(FriendRequestManageDialog_):
         self.token = token
         request_manage.Ui_Dialog().setupUi(self)
 
-        self.scroll_area = self.findChild(QScrollArea, "scrollArea")
+        if (scroll_area := self.findChild(QScrollArea, "scrollArea")) is None:
+            raise RuntimeError
+        else:
+            self.scroll_area = scroll_area
+
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.scroll_area.setWidgetResizable(True)
@@ -165,10 +174,10 @@ class FriendRequestManageDialog(FriendRequestManageDialog_):
         outgoing_resp = get_outgoing_requests(self.token)
 
         # 检查请求是否成功
-        if incoming_resp.status_code != 200:
+        if incoming_resp.status_code != HTTPStatus.OK:
             show_api_error(self, "获取收到的请求", incoming_resp)
             return
-        if outgoing_resp.status_code != 200:
+        if outgoing_resp.status_code != HTTPStatus.OK:
             show_api_error(self, "获取发出的请求", outgoing_resp)
             return
 
@@ -247,7 +256,7 @@ class SearchUsersDialog(QDialog):
         query = self.search_edit.text()
         response = search_users(self.token, query)
         self.list_view.setModel(QStringListModel([]))
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             users = response.json()["users"]
             self.list_view.setModel(QStringListModel(users))
         else:
@@ -273,7 +282,7 @@ class LoginWindow(RegLogWindow):
 
     def do_login(self):
         response = login(self.username_edit.text(), self.password_edit.text())
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             QMessageBox.information(self, "登录", "登录成功!")
             self.logged_in = True
             self.action = ""
@@ -313,7 +322,7 @@ class RegisterWindow(RegLogWindow):
             return
 
         response = register(self.username_edit.text(), self.password_edit.text())
-        if response.status_code == 201:
+        if response.status_code == HTTPStatus.CREATED:
             QMessageBox.information(self, "注册", "注册成功！请登录！")
             self.go_login()
         else:
@@ -353,7 +362,7 @@ class AddFriendDialog(QDialog):
     def send_request(self):
         message = self.message_edit.toPlainText()
         response = send_friend_request(self.token, self.friend_username, message)
-        if response.status_code == 201:
+        if response.status_code == HTTPStatus.CREATED:
             QMessageBox.information(self, "添加好友", "好友请求已发送!")
             self.close()
         else:
@@ -377,15 +386,23 @@ class SettingsDialog(QDialog):
         self.font_family_combo = self.findChild(QComboBox, "font_family_combo")
         self.font_size_spin = self.findChild(QSpinBox, "font_size_spin")
         self.apply_font_button = self.findChild(QPushButton, "apply_font_button")
-        self.select_font_file_button = self.findChild(QPushButton, "select_font_file_button")
+        self.select_font_file_button = self.findChild(
+            QPushButton, "select_font_file_button"
+        )
 
         # 网络相关控件
         self.public_key_edit = self.findChild(QLineEdit, "public_key_edit")
-        self.select_public_key_button = self.findChild(QPushButton, "select_public_key_button")
+        self.select_public_key_button = self.findChild(
+            QPushButton, "select_public_key_button"
+        )
         self.server_url_edit = self.findChild(QLineEdit, "server_url_edit")
         self.update_server_edit = self.findChild(QLineEdit, "update_server_edit")
-        self.check_server_version_button = self.findChild(QPushButton, "check_server_version_button")
-        self.check_client_version_button = self.findChild(QPushButton, "check_client_version_button")
+        self.check_server_version_button = self.findChild(
+            QPushButton, "check_server_version_button"
+        )
+        self.check_client_version_button = self.findChild(
+            QPushButton, "check_client_version_button"
+        )
         self.update_client_button = self.findChild(QPushButton, "update_client_button")
         self.ok_button = self.findChild(QPushButton, "ok_button")
         self.cancel_button = self.findChild(QPushButton, "cancel_button")
@@ -419,37 +436,39 @@ class SettingsDialog(QDialog):
         self.check_server_version_button.clicked.connect(self.check_server_version)
         self.check_client_version_button.clicked.connect(self.check_client_version)
         self.ok_button.clicked.connect(self.apply_net_settings)
-        if hasattr(self, 'save_profile_button'):
+        if hasattr(self, "save_profile_button"):
             self.save_profile_button.clicked.connect(self.save_profile)
-    
+
     def add_profile_tab(self):
         """添加个人资料标签页"""
         profile_tab = QWidget()
         self.tabWidget.addTab(profile_tab, "个人资料")
-        
+
         layout = QVBoxLayout(profile_tab)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
-        
+
         # 个人资料表单
         profile_frame = QFrame()
         profile_layout = QVBoxLayout(profile_frame)
-        
+
         # 头像
         avatar_layout = QHBoxLayout()
         avatar_label = QLabel("头像：")
         self.avatar_label = QLabel()
         self.avatar_label.setFixedSize(80, 80)
-        self.avatar_label.setStyleSheet("border-radius: 40px; background-color: #E0E0E0;")
+        self.avatar_label.setStyleSheet(
+            "border-radius: 40px; background-color: #E0E0E0;"
+        )
         avatar_button = QPushButton("选择头像")
         avatar_button.clicked.connect(self.select_avatar)
         avatar_layout.addWidget(avatar_label)
         avatar_layout.addWidget(avatar_button)
         avatar_layout.addStretch()
         profile_layout.addLayout(avatar_layout)
-        
+
         # 昵称
         nickname_layout = QHBoxLayout()
         nickname_label = QLabel("昵称：")
@@ -457,7 +476,7 @@ class SettingsDialog(QDialog):
         nickname_layout.addWidget(nickname_label)
         nickname_layout.addWidget(self.nickname_edit)
         profile_layout.addLayout(nickname_layout)
-        
+
         # 出生日期
         birthday_layout = QHBoxLayout()
         birthday_label = QLabel("出生日期：")
@@ -466,7 +485,7 @@ class SettingsDialog(QDialog):
         birthday_layout.addWidget(birthday_label)
         birthday_layout.addWidget(self.birthday_edit)
         profile_layout.addLayout(birthday_layout)
-        
+
         # 性别
         gender_layout = QHBoxLayout()
         gender_label = QLabel("性别：")
@@ -475,7 +494,7 @@ class SettingsDialog(QDialog):
         gender_layout.addWidget(gender_label)
         gender_layout.addWidget(self.gender_combo)
         profile_layout.addLayout(gender_layout)
-        
+
         # 个人简介
         bio_layout = QVBoxLayout()
         bio_label = QLabel("个人简介：")
@@ -484,19 +503,19 @@ class SettingsDialog(QDialog):
         bio_layout.addWidget(bio_label)
         bio_layout.addWidget(self.bio_edit)
         profile_layout.addLayout(bio_layout)
-        
+
         # 保存按钮
         self.save_profile_button = QPushButton("保存个人资料")
         profile_layout.addWidget(self.save_profile_button)
-        
+
         # 头像数据
         self.avatar_data = None
-        
+
         scroll_layout.addWidget(profile_frame)
         scroll_layout.addStretch()
         scroll_area.setWidget(scroll_content)
         layout.addWidget(scroll_area)
-    
+
     def select_avatar(self):
         """选择头像"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -505,21 +524,25 @@ class SettingsDialog(QDialog):
         if file_path:
             # 显示预览
             from PySide6.QtGui import QPixmap
+
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
                 # 缩放头像
-                scaled_pixmap = pixmap.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                scaled_pixmap = pixmap.scaled(
+                    80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
                 self.avatar_label.setPixmap(scaled_pixmap)
                 # 读取并编码头像数据
                 import base64
+
                 with open(file_path, "rb") as f:
                     avatar_bytes = f.read()
                     self.avatar_data = base64.b64encode(avatar_bytes).decode("utf-8")
-    
+
     def load_profile(self):
         """加载个人资料"""
         response = get_user_info(self.token, self.user_name)
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             user_info = response.json()
             self.nickname_edit.setText(user_info.get("nickname", ""))
             self.birthday_edit.setText(user_info.get("birthday", ""))
@@ -534,17 +557,21 @@ class SettingsDialog(QDialog):
             avatar_data = user_info.get("avatar")
             if avatar_data:
                 import base64
-                from PySide6.QtGui import QPixmap, QImage
+
+                from PySide6.QtGui import QImage, QPixmap
+
                 try:
                     avatar_bytes = base64.b64decode(avatar_data)
                     image = QImage.fromData(avatar_bytes)
                     pixmap = QPixmap.fromImage(image)
-                    scaled_pixmap = pixmap.scaled(80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    scaled_pixmap = pixmap.scaled(
+                        80, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    )
                     self.avatar_label.setPixmap(scaled_pixmap)
                     self.avatar_data = avatar_data
                 except Exception:
                     pass
-    
+
     def save_profile(self):
         """保存个人资料"""
         nickname = self.nickname_edit.text().strip()
@@ -553,24 +580,29 @@ class SettingsDialog(QDialog):
         gender_map = {"男": "male", "女": "female", "其他": "other"}
         gender = gender_map.get(gender_text, "")
         bio = self.bio_edit.toPlainText().strip()
-        
+
         response = update_user_profile(
-            self.token, 
-            self.user_name, 
+            self.token,
+            self.user_name,
             nickname=nickname,
             birthday=birthday,
             gender=gender,
             bio=bio,
-            avatar=self.avatar_data
+            avatar=self.avatar_data,
         )
-        
-        if response.status_code == 200:
+
+        if response.status_code == HTTPStatus.OK:
             QMessageBox.information(self, "成功", "个人资料更新成功")
         else:
             show_api_error(self, "更新个人资料", response)
 
     def apply_net_settings(self):
-        reply = QMessageBox.warning(None, "警告", "如果贸然修改此设置可能会导致无法登录，以至于无法重新设置，除非手动修改 settings 文件。你确定要修改么？", QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.warning(
+            None,
+            "警告",
+            "如果贸然修改此设置可能会导致无法登录，以至于无法重新设置，除非手动修改 settings 文件。你确定要修改么？",
+            QMessageBox.Yes | QMessageBox.No,
+        )
         if reply == QMessageBox.Yes:
             set_setting("network.public_key_path", self.public_key_edit.text())
             set_setting("network.server_url", self.server_url_edit.text())
@@ -581,10 +613,16 @@ class SettingsDialog(QDialog):
     def cancel_net_settings(self):
         # 加载网络设置
         if get_setting("network.public_key_path", "") == "":
-            set_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting"))
+            set_setting(
+                "network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting")
+            )
         self.public_key_edit.setText(get_setting("network.public_key_path", ""))
-        self.server_url_edit.setText(get_setting("network.server_url", "http://127.0.0.1:5000/api/v1"))
-        self.update_server_edit.setText(get_setting("network.update_server_url", "http://127.0.0.1:5000/update"))
+        self.server_url_edit.setText(
+            get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
+        )
+        self.update_server_edit.setText(
+            get_setting("network.update_server_url", "http://127.0.0.1:5000/update")
+        )
 
     def load_settings(self):
         """从配置文件加载设置"""
@@ -607,11 +645,15 @@ class SettingsDialog(QDialog):
         self.font_size_spin.setValue(font_size)
 
         # 加载网络设置
-        if get_setting("network.public_key_path", "")== "":
-            set_setting("network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting"))
+        if get_setting("network.public_key_path", "") == "":
+            set_setting(
+                "network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting")
+            )
         public_key_path = get_setting("network.public_key_path", "")
         server_url = get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
-        update_server_url = get_setting("network.update_server_url", "http://127.0.0.1:5000/update")
+        update_server_url = get_setting(
+            "network.update_server_url", "http://127.0.0.1:5000/update"
+        )
 
         self.public_key_edit.setText(public_key_path)
         self.server_url_edit.setText(server_url)
@@ -625,37 +667,34 @@ class SettingsDialog(QDialog):
     def select_font_file(self):
         """选择本地TTF字体文件"""
         font_file, _ = QFileDialog.getOpenFileName(
-            self,
-            "选择字体文件",
-            "",
-            "字体文件 (*.ttf *.otf *.TTF *.OTF);;所有文件 (*)"
+            self, "选择字体文件", "", "字体文件 (*.ttf *.otf *.TTF *.OTF);;所有文件 (*)"
         )
-        
+
         if font_file:
             # 加载字体文件
             font_id = QFontDatabase.addApplicationFont(font_file)
             if font_id == -1:
                 QMessageBox.warning(self, "错误", "无法加载字体文件")
                 return
-            
+
             # 获取字体族名称
             font_families = QFontDatabase.applicationFontFamilies(font_id)
             if font_families:
                 font_family = font_families[0]
-                
+
                 # 检查是否已在列表中
                 index = self.font_family_combo.findText(font_family)
                 if index < 0:
                     # 添加到列表
                     self.font_family_combo.addItem(font_family)
                     index = self.font_family_combo.count() - 1
-                
+
                 # 选中该字体
                 self.font_family_combo.setCurrentIndex(index)
-                
+
                 # 保存字体文件路径
                 set_setting("font.file_path", font_file)
-                
+
                 QMessageBox.information(self, "成功", f"已加载字体：{font_family}")
 
     def load_credits(self):
@@ -722,7 +761,7 @@ class SettingsDialog(QDialog):
         # 保存设置
         set_setting("font.family", font_family)
         set_setting("font.size", font_size)
-    
+
     def select_public_key(self):
         """选择公钥文件"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -733,33 +772,37 @@ class SettingsDialog(QDialog):
 
     def check_server_version(self):
         rep = check_server_version()
-        if rep.status_code == 200:
-            QMessageBox.information(self,"服务器版本",f"服务器版本: {rep.json().get('version')}")
+        if rep.status_code == HTTPStatus.OK:
+            QMessageBox.information(
+                self, "服务器版本", f"服务器版本: {rep.json().get('version')}"
+            )
 
     def check_client_version(self):
         """检测客户端版本"""
         QMessageBox.information(self, "客户端版本", f"客户端版本: {version}")
-    
+
     def accept(self):
         """确认按钮点击事件"""
         # 保存网络设置
         public_key_path = self.public_key_edit.text()
         server_url = self.server_url_edit.text()
         update_server_url = self.update_server_edit.text()
-        
-        print(f"保存网络设置: public_key_path={public_key_path}, server_url={server_url}, update_server_url={update_server_url}")
-        
+
+        print(
+            f"保存网络设置: public_key_path={public_key_path}, server_url={server_url}, update_server_url={update_server_url}"
+        )
+
         # 保存网络设置
         set_setting("network.public_key_path", public_key_path)
         set_setting("network.server_url", server_url)
         set_setting("network.update_server_url", update_server_url)
-        
+
         # 保存其他设置
         set_setting("network.public_key_path", self.public_key_edit.text())
         set_setting("network.server_url", self.server_url_edit.text())
         set_setting("network.update_server_url", self.update_server_edit.text())
         print("设置保存完成")
-        
+
         super().accept()
 
 
@@ -790,7 +833,7 @@ def generate_avatar(username, size=40):
     font.setBold(True)
     painter.setFont(font)
     # 获取首字母
-    initial = username[0].upper() if username else '?'
+    initial = username[0].upper() if username else "?"
     # 计算文本位置
     rect = pixmap.rect()
     painter.drawText(rect, Qt.AlignCenter, initial)
@@ -801,7 +844,7 @@ def generate_avatar(username, size=40):
 
 class MessageItem(QWidget):
     """消息项组件"""
-    
+
     def __init__(self, is_self, username, nickname, content, timestamp, avatar=None):
         super().__init__()
         self.is_self = is_self
@@ -810,11 +853,11 @@ class MessageItem(QWidget):
         self.content = content
         self.timestamp = timestamp
         self.avatar = avatar
-        
+
         # 创建布局
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 5, 10, 5)
-        
+
         if not is_self:
             # 对方消息：头像 + 消息
             avatar_label = QLabel()
@@ -822,12 +865,16 @@ class MessageItem(QWidget):
             # 显示头像
             if avatar:
                 import base64
-                from PySide6.QtGui import QPixmap, QImage
+
+                from PySide6.QtGui import QImage, QPixmap
+
                 try:
                     avatar_bytes = base64.b64decode(avatar)
                     image = QImage.fromData(avatar_bytes)
                     pixmap = QPixmap.fromImage(image)
-                    scaled_pixmap = pixmap.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    scaled_pixmap = pixmap.scaled(
+                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    )
                     avatar_label.setPixmap(scaled_pixmap)
                 except Exception:
                     # 如果头像加载失败，生成随机头像
@@ -839,11 +886,11 @@ class MessageItem(QWidget):
                 avatar_label.setPixmap(avatar_pixmap)
             avatar_label.setStyleSheet("border-radius: 20px;")
             layout.addWidget(avatar_label)
-            
+
             message_widget = QWidget()
             message_layout = QVBoxLayout(message_widget)
             message_layout.setContentsMargins(10, 0, 0, 0)
-            
+
             # 昵称和时间
             top_widget = QWidget()
             top_layout = QHBoxLayout(top_widget)
@@ -858,24 +905,26 @@ class MessageItem(QWidget):
             top_layout.addWidget(time_label)
             top_layout.addStretch()
             message_layout.addWidget(top_widget)
-            
+
             # 消息内容
             content_label = QLabel(self.content)
             content_label.setWordWrap(True)
             content_label.setMaximumWidth(300)
-            content_label.setStyleSheet("background-color: #F0F0F0; border-radius: 10px; padding: 10px;")
+            content_label.setStyleSheet(
+                "background-color: #F0F0F0; border-radius: 10px; padding: 10px;"
+            )
             message_layout.addWidget(content_label)
-            
+
             layout.addWidget(message_widget)
             layout.addStretch()
         else:
             # 自己消息：消息 + 头像
             layout.addStretch()
-            
+
             message_widget = QWidget()
             message_layout = QVBoxLayout(message_widget)
             message_layout.setContentsMargins(0, 0, 10, 0)
-            
+
             # 消息内容和时间
             content_time_widget = QWidget()
             content_time_layout = QVBoxLayout(content_time_widget)
@@ -884,7 +933,9 @@ class MessageItem(QWidget):
             content_label = QLabel(self.content)
             content_label.setWordWrap(True)
             content_label.setMaximumWidth(300)
-            content_label.setStyleSheet("background-color: #DCF8C6; border-radius: 10px; padding: 10px;")
+            content_label.setStyleSheet(
+                "background-color: #DCF8C6; border-radius: 10px; padding: 10px;"
+            )
             content_time_layout.addWidget(content_label)
             # 时间
             time_label = QLabel(self.timestamp)
@@ -892,20 +943,24 @@ class MessageItem(QWidget):
             time_label.setAlignment(Qt.AlignRight)
             content_time_layout.addWidget(time_label)
             message_layout.addWidget(content_time_widget)
-            
+
             layout.addWidget(message_widget)
-            
+
             avatar_label = QLabel()
             avatar_label.setFixedSize(40, 40)
             # 显示头像
             if avatar:
                 import base64
-                from PySide6.QtGui import QPixmap, QImage
+
+                from PySide6.QtGui import QImage, QPixmap
+
                 try:
                     avatar_bytes = base64.b64decode(avatar)
                     image = QImage.fromData(avatar_bytes)
                     pixmap = QPixmap.fromImage(image)
-                    scaled_pixmap = pixmap.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    scaled_pixmap = pixmap.scaled(
+                        40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    )
                     avatar_label.setPixmap(scaled_pixmap)
                 except Exception:
                     # 如果头像加载失败，生成随机头像
@@ -992,12 +1047,14 @@ class ChattingMainWindow(QMainWindow):
         # 添加新的布局
         chat_layout = QVBoxLayout(central_widget)
         chat_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # 聊天标题栏
         self.chat_title = QLabel("选择好友开始聊天")
-        self.chat_title.setStyleSheet("font-size: 16px; font-weight: bold; padding: 10px;")
+        self.chat_title.setStyleSheet(
+            "font-size: 16px; font-weight: bold; padding: 10px;"
+        )
         chat_layout.addWidget(self.chat_title)
-        
+
         # 消息显示区域
         self.messages_scroll = QScrollArea()
         self.messages_scroll.setWidgetResizable(True)
@@ -1007,22 +1064,22 @@ class ChattingMainWindow(QMainWindow):
         self.messages_layout.setSpacing(10)
         self.messages_scroll.setWidget(self.messages_widget)
         chat_layout.addWidget(self.messages_scroll, 1)
-        
+
         # 输入区域
         input_widget = QWidget()
         input_layout = QHBoxLayout(input_widget)
         input_layout.setContentsMargins(10, 10, 10, 10)
-        
+
         self.message_input = QTextEdit()
         self.message_input.setFixedHeight(80)
         self.message_input.setPlaceholderText("输入消息...")
         input_layout.addWidget(self.message_input, 1)
-        
+
         self.send_button = QPushButton("发送")
         self.send_button.setFixedSize(80, 80)
         self.send_button.clicked.connect(self.send_message)
         input_layout.addWidget(self.send_button)
-        
+
         chat_layout.addWidget(input_widget)
 
         # 定时处理全局任务
@@ -1034,7 +1091,7 @@ class ChattingMainWindow(QMainWindow):
         self.message_timer = QTimer()
         self.message_timer.timeout.connect(self.check_new_messages)
         self.message_timer.start(5000)  # 5秒检查一次
-        
+
         # 定时刷新好友列表（实时更新资料）
         self.friends_refresh_timer = QTimer()
         self.friends_refresh_timer.timeout.connect(self.reload_friends_list)
@@ -1042,7 +1099,7 @@ class ChattingMainWindow(QMainWindow):
 
         # 当前聊天的好友
         self.current_friend = None
-        
+
         # 本地消息存储
         self.local_messages = {}
         # 加载本地存储的消息
@@ -1050,37 +1107,37 @@ class ChattingMainWindow(QMainWindow):
 
         # 初始加载好友列表
         self.reload_friends_list()
-        
+
         # 设置窗口最小大小
         self.window.setMinimumSize(800, 600)
-        
+
         # 窗口关闭时保存消息
         self.window.closeEvent = self.on_close
-        
+
     def get_messages_file(self):
         """获取消息存储文件路径"""
         return f"messages_{self.user_name}.json"
-    
+
     def load_local_messages(self):
         """加载本地存储的消息"""
         messages_file = self.get_messages_file()
         if os.path.exists(messages_file):
             try:
-                with open(messages_file, 'r', encoding='utf-8') as f:
+                with open(messages_file, "r", encoding="utf-8") as f:
                     self.local_messages = json.load(f)
             except Exception as e:
                 print(f"加载本地消息失败: {e}")
                 self.local_messages = {}
-    
+
     def save_local_messages(self):
         """保存消息到本地"""
         messages_file = self.get_messages_file()
         try:
-            with open(messages_file, 'w', encoding='utf-8') as f:
+            with open(messages_file, "w", encoding="utf-8") as f:
                 json.dump(self.local_messages, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"保存本地消息失败: {e}")
-    
+
     def on_close(self, event):
         """窗口关闭事件"""
         self.save_local_messages()
@@ -1109,7 +1166,7 @@ class ChattingMainWindow(QMainWindow):
     def reload_friends_list(self):
         """刷新好友列表，返回最新数据"""
         response = get_friends_list(self.token)
-        if response.status_code == 401:
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
             # Token无效，停止定时器并提示用户
             self.timer.stop()
             self.message_timer.stop()
@@ -1117,7 +1174,7 @@ class ChattingMainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "登录已过期，请重新登录")
             self.do_logout()
             return
-        elif response.status_code == 200:
+        elif response.status_code == HTTPStatus.OK:
             data = response.json()
             self.friends_list_data = data  # 保存供详情使用
             friends = data.get("friends", [])
@@ -1130,7 +1187,7 @@ class ChattingMainWindow(QMainWindow):
                 nickname = username
                 try:
                     user_info = get_user_info(self.token, username)
-                    if user_info.status_code == 200:
+                    if user_info.status_code == HTTPStatus.OK:
                         user_data = user_info.json()
                         nickname = user_data.get("nickname", username)
                 except Exception:
@@ -1150,15 +1207,19 @@ class ChattingMainWindow(QMainWindow):
                 try:
                     # 获取好友信息
                     user_info = get_user_info(self.token, username)
-                    if user_info.status_code == 200:
+                    if user_info.status_code == HTTPStatus.OK:
                         avatar_data = user_info.json().get("avatar")
                         if avatar_data:
                             import base64
-                            from PySide6.QtGui import QPixmap, QImage
+
+                            from PySide6.QtGui import QImage, QPixmap
+
                             avatar_bytes = base64.b64decode(avatar_data)
                             image = QImage.fromData(avatar_bytes)
                             pixmap = QPixmap.fromImage(image)
-                            scaled_pixmap = pixmap.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            scaled_pixmap = pixmap.scaled(
+                                40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                            )
                             avatar_label.setPixmap(scaled_pixmap)
                             has_avatar = True
                 except Exception:
@@ -1201,26 +1262,26 @@ class ChattingMainWindow(QMainWindow):
         friend = self.friends_list_data.get("friends", [])[index]
         self.current_friend = friend
         username = friend.get("username")
-        
+
         # 获取最新的好友信息
         nickname = username
         try:
             user_info = get_user_info(self.token, username)
-            if user_info.status_code == 200:
+            if user_info.status_code == HTTPStatus.OK:
                 user_data = user_info.json()
                 nickname = user_data.get("nickname", username)
         except Exception:
             pass
-        
+
         # 更新聊天标题
         self.chat_title.setText(f"与 {nickname} 聊天")
-        
+
         # 清空消息显示
         for i in reversed(range(self.messages_layout.count())):
             widget = self.messages_layout.itemAt(i).widget()
             if widget:
                 widget.deleteLater()
-        
+
         # 加载本地消息并更新头像
         if username in self.local_messages:
             for msg in self.local_messages[username]:
@@ -1231,25 +1292,25 @@ class ChattingMainWindow(QMainWindow):
         if not self.current_friend:
             QMessageBox.warning(self, "提示", "请先选择好友")
             return
-        
+
         content = self.message_input.toPlainText().strip()
         if not content:
             return
-        
+
         username = self.current_friend.get("username")
-        
+
         # 获取自己的信息（包括头像）
         user_info = get_user_info(self.token, self.user_name)
         nickname = self.user_name
         avatar = None
-        if user_info.status_code == 200:
+        if user_info.status_code == HTTPStatus.OK:
             user_data = user_info.json()
             nickname = user_data.get("nickname", self.user_name)
             avatar = user_data.get("avatar")
-        
+
         # 发送消息到服务器
         response = send_message(self.token, username, content)
-        if response.status_code == 201:
+        if response.status_code == HTTPStatus.CREATED:
             # 本地显示消息
             msg = {
                 "is_self": True,
@@ -1257,17 +1318,17 @@ class ChattingMainWindow(QMainWindow):
                 "nickname": nickname,
                 "content": content,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "avatar": avatar
+                "avatar": avatar,
             }
             self.add_message_item(msg)
-            
+
             # 保存到本地
             if username not in self.local_messages:
                 self.local_messages[username] = []
             self.local_messages[username].append(msg)
             # 保存到文件
             self.save_local_messages()
-            
+
             # 清空输入框
             self.message_input.clear()
         else:
@@ -1279,24 +1340,24 @@ class ChattingMainWindow(QMainWindow):
         username = msg.get("username")
         nickname = msg.get("nickname")
         avatar = msg.get("avatar")
-        
+
         # 尝试获取最新的用户信息
         try:
             user_info = get_user_info(self.token, username)
-            if user_info.status_code == 200:
+            if user_info.status_code == HTTPStatus.OK:
                 user_data = user_info.json()
                 nickname = user_data.get("nickname", username)
                 avatar = user_data.get("avatar")
         except Exception:
             pass
-        
+
         message_item = MessageItem(
             is_self=msg.get("is_self"),
             username=username,
             nickname=nickname,
             content=msg.get("content"),
             timestamp=msg.get("timestamp"),
-            avatar=avatar
+            avatar=avatar,
         )
         self.messages_layout.addWidget(message_item)
         # 滚动到底部
@@ -1307,7 +1368,7 @@ class ChattingMainWindow(QMainWindow):
     def check_new_messages(self):
         """检查新消息"""
         response = get_messages(self.token)
-        if response.status_code == 401:
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
             # Token无效，停止定时器并提示用户
             self.timer.stop()
             self.message_timer.stop()
@@ -1315,22 +1376,22 @@ class ChattingMainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "登录已过期，请重新登录")
             self.do_logout()
             return
-        elif response.status_code == 200:
+        elif response.status_code == HTTPStatus.OK:
             messages = response.json().get("messages", [])
             for msg in messages:
                 from_username = msg.get("from_username")
                 content = msg.get("content")
                 created_at = msg.get("created_at")
-                
+
                 # 获取发送者信息
                 user_info = get_user_info(self.token, from_username)
                 nickname = from_username
                 avatar = None
-                if user_info.status_code == 200:
+                if user_info.status_code == HTTPStatus.OK:
                     user_data = user_info.json()
                     nickname = user_data.get("nickname", from_username)
                     avatar = user_data.get("avatar")
-                
+
                 # 构建消息对象
                 message = {
                     "is_self": False,
@@ -1338,20 +1399,23 @@ class ChattingMainWindow(QMainWindow):
                     "nickname": nickname,
                     "content": content,
                     "timestamp": created_at,
-                    "avatar": avatar
+                    "avatar": avatar,
                 }
-                
+
                 # 保存到本地
                 if from_username not in self.local_messages:
                     self.local_messages[from_username] = []
                 self.local_messages[from_username].append(message)
                 # 保存到文件
                 self.save_local_messages()
-                
+
                 # 如果当前正在与该好友聊天，显示消息
-                if self.current_friend and self.current_friend.get("username") == from_username:
+                if (
+                    self.current_friend
+                    and self.current_friend.get("username") == from_username
+                ):
                     self.add_message_item(message)
-                
+
                 # 从服务器删除消息
                 delete_message(self.token, msg.get("id"))
 
@@ -1360,9 +1424,9 @@ class ChattingMainWindow(QMainWindow):
         self.timer.stop()
         self.message_timer.stop()
         self.friends_refresh_timer.stop()
-        
+
         response = logout(self.token)
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             self.state = "logout"
             self.window.close()
         else:
@@ -1421,7 +1485,9 @@ def run_auth_flow():
                 print(f"成功加载自定义字体: {custom_font_families[0]}")
 
     # 加载默认字体作为后备
-    font_relative = r"./ChattingClientFile/font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
+    font_relative = (
+        r"./ChattingClientFile/font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
+    )
     font_path = os.path.abspath(font_relative)
     if not os.path.exists(font_path):
         print(f"字体文件不存在: {font_path}")
@@ -1479,4 +1545,5 @@ def run_auth_flow():
 
 
 if __name__ == "__main__":
+    print(__doc__)
     run_auth_flow()

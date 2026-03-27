@@ -45,6 +45,7 @@ Thumbs.db
 #chatting file
 *.chatting
 *.db
+settings.json
 test.py
 mypy.ini
 _internal/
