@@ -7,6 +7,7 @@ import requests
 import rsa
 from requests.models import Response
 from rsa import PublicKey
+import extend_const
 
 logger = logging.getLogger("client/api")
 logging.basicConfig(
@@ -113,7 +114,7 @@ def check_server_version():
         return response
     except:
         reps = Response()
-        reps.status_code = -1
+        reps.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return reps
 
 def rsa_encrypt(bytes_: bytes) -> bytes:
@@ -132,7 +133,7 @@ def register(username: str, plain_password: str) -> Response:
     传入 用户名 和 原密码 (未经处理的密码) ，函数会向服务器端发送 POST /users，
     请求体的password 对象会经过RSA加密和Base64编码，函数会返回服务器返回的 Response 对象。
     接口详细信息参阅 readme.md 文档
-    注意：**如果向服务器请求失败，会返回一个状态码为-1的Response对象**
+    注意：**如果向服务器请求失败，会返回一个状态码为extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER的Response对象**
     """
     try:
         url = f"{get_base_url()}/users"
@@ -152,7 +153,7 @@ def register(username: str, plain_password: str) -> Response:
     except Exception as e:
         logger.error(f"[注册] 发生异常: {str(e)}")
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -160,7 +161,7 @@ def login(username: str, plain_password: str) -> Response:
     """
     传入 用户名 和 原密码 (未经处理的密码) ，函数会向服务器端发送 POST /sessions，
     请求体的 password 对象会经过RSA加密和Base64编码，函数会返回服务器返回的 Response 对象。
-    注意：**如果向服务器请求失败，会返回一个状态码为-1的Response对象**
+    注意：**如果向服务器请求失败，会返回一个状态码为extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER的Response对象**
     """
     try:
         logger.debug("[登录] 创建请求体中...")
@@ -180,14 +181,14 @@ def login(username: str, plain_password: str) -> Response:
     except Exception as e:
         logger.error(f"[登录] 发生异常: {str(e)}")
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
 def logout(token: str) -> Response:
     """
     传入一个 token 服务器将会删除这个token。
-    注意： 如果请求失败会返回一个状态码为 -1 的 Response 对象。
+    注意： 如果请求失败会返回一个状态码为 extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER 的 Response 对象。
     """
     try:
         url = f"{get_base_url()}/sessions"
@@ -197,7 +198,7 @@ def logout(token: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -221,7 +222,7 @@ def send_friend_request(
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -238,7 +239,7 @@ def get_incoming_requests(token: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -255,7 +256,7 @@ def get_outgoing_requests(token: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -272,7 +273,7 @@ def accept_friend_request(token: str, request_id: int) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -289,7 +290,7 @@ def reject_friend_request(token: str, request_id: int) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -306,7 +307,7 @@ def get_friends_list(token: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -323,7 +324,7 @@ def remove_friend(token: str, friend_username: int) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -348,7 +349,7 @@ def get_user_info(token: str, username: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -386,7 +387,7 @@ def update_user_profile(token: str, username: str, **kwargs) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -413,7 +414,7 @@ def rename_user(token: str, old_username: str, new_username: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -445,7 +446,7 @@ def search_users(token: str, query: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -476,7 +477,7 @@ def send_message(token: str, to_username: str, content: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -509,7 +510,7 @@ def get_messages(token: str) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 
@@ -535,7 +536,7 @@ def delete_message(token: str, message_id: int) -> Response:
         return resp
     except Exception:
         rep: Response = Response()
-        rep.status_code = -1
+        rep.status_code = extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER
         return rep
 
 

@@ -26,6 +26,7 @@ import friend_request_widget
 import request_manage
 import search_users_ui
 import settings
+from client import extend_const
 from client_api import (accept_friend_request, check_server_version,
                         delete_message, get_friends_list,
                         get_incoming_requests, get_messages,
@@ -55,7 +56,7 @@ version = get_setting("version")
 
 def show_api_error(parent, context, response):
     """统一显示API错误信息"""
-    if response.status_code == -1:
+    if response.status_code == extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
         QMessageBox.warning(parent, context, "发生错误，无法与服务器进行通讯")
     else:
         try:
@@ -673,7 +674,7 @@ class SettingsDialog(QDialog):
         if font_file:
             # 加载字体文件
             font_id = QFontDatabase.addApplicationFont(font_file)
-            if font_id == -1:
+            if font_id == extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
                 QMessageBox.warning(self, "错误", "无法加载字体文件")
                 return
 
@@ -729,23 +730,9 @@ class SettingsDialog(QDialog):
         palette = QPalette()
 
         if theme == "dark":
-            # 深色主题
-            palette.setColor(QPalette.Window, QColor(53, 53, 53))
-            palette.setColor(QPalette.WindowText, Qt.white)
-            palette.setColor(QPalette.Base, QColor(25, 25, 25))
-            palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-            palette.setColor(QPalette.ToolTipBase, Qt.white)
-            palette.setColor(QPalette.ToolTipText, Qt.white)
-            palette.setColor(QPalette.Text, Qt.white)
-            palette.setColor(QPalette.Button, QColor(53, 53, 53))
-            palette.setColor(QPalette.ButtonText, Qt.white)
-            palette.setColor(QPalette.BrightText, Qt.red)
-            palette.setColor(QPalette.Link, QColor(42, 130, 218))
-            palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-            palette.setColor(QPalette.HighlightedText, Qt.black)
+            app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
         else:
-            # 浅色主题（默认）
-            palette = QPalette()
+            app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
         app.setPalette(palette)
 
@@ -1455,21 +1442,9 @@ def run_auth_flow():
     # 加载并应用主题设置
     theme = get_setting("theme", "light")
     if theme == "dark":
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(53, 53, 53))
-        palette.setColor(QPalette.WindowText, Qt.white)
-        palette.setColor(QPalette.Base, QColor(25, 25, 25))
-        palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-        palette.setColor(QPalette.ToolTipBase, Qt.white)
-        palette.setColor(QPalette.ToolTipText, Qt.white)
-        palette.setColor(QPalette.Text, Qt.white)
-        palette.setColor(QPalette.Button, QColor(53, 53, 53))
-        palette.setColor(QPalette.ButtonText, Qt.white)
-        palette.setColor(QPalette.BrightText, Qt.red)
-        palette.setColor(QPalette.Link, QColor(42, 130, 218))
-        palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-        palette.setColor(QPalette.HighlightedText, Qt.black)
-        app.setPalette(palette)
+        app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
+    else:
+        app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
     # 加载并应用字体设置
     font_family = get_setting("font.family", "")
@@ -1479,7 +1454,7 @@ def run_auth_flow():
     # 先尝试加载用户自定义的字体文件
     if font_file_path and os.path.exists(font_file_path):
         custom_font_id = QFontDatabase.addApplicationFont(font_file_path)
-        if custom_font_id != -1:
+        if custom_font_id != extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
             custom_font_families = QFontDatabase.applicationFontFamilies(custom_font_id)
             if custom_font_families:
                 print(f"成功加载自定义字体: {custom_font_families[0]}")
@@ -1494,7 +1469,7 @@ def run_auth_flow():
         return
 
     font_id = QFontDatabase.addApplicationFont(font_path)
-    if font_id == -1:
+    if font_id == extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
         print(f"字体加载失败: {font_path}")
     else:
         font_families = QFontDatabase.applicationFontFamilies(font_id)
