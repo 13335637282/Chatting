@@ -26,7 +26,9 @@ import friend_request_widget
 import request_manage
 import search_users_ui
 import settings
-from client import extend_const
+import extend_const
+from extend_const import (IntConst, StringConst)
+
 from client_api import (accept_friend_request, check_server_version,
                         delete_message, get_friends_list,
                         get_incoming_requests, get_messages,
@@ -636,7 +638,7 @@ class SettingsDialog(QDialog):
 
         # 加载字体设置
         font_family = get_setting("font.family", "")
-        font_size = get_setting("font.size", 12)
+        font_size = get_setting("font.size", IntConst.DEFAULT_FONT_SIZE)
 
         if font_family:
             index = self.font_family_combo.findText(font_family)
@@ -651,9 +653,9 @@ class SettingsDialog(QDialog):
                 "network.public_key_path", os.path.abspath("PUBLIC_KEY.chatting")
             )
         public_key_path = get_setting("network.public_key_path", "")
-        server_url = get_setting("network.server_url", "http://127.0.0.1:5000/api/v1")
+        server_url = get_setting("network.server_url", StringConst.DEFAULT_SERVER_URL)
         update_server_url = get_setting(
-            "network.update_server_url", "http://127.0.0.1:5000/update"
+            "network.update_server_url", StringConst.DEFAULT_UPDATE_SERVER_URL
         )
 
         self.public_key_edit.setText(public_key_path)
@@ -1077,12 +1079,12 @@ class ChattingMainWindow(QMainWindow):
         # 定时检查新消息
         self.message_timer = QTimer()
         self.message_timer.timeout.connect(self.check_new_messages)
-        self.message_timer.start(5000)  # 5秒检查一次
+        self.message_timer.start(IntConst.MESSAGES_REFRESH_TIMER)  # 5秒检查一次
 
         # 定时刷新好友列表（实时更新资料）
         self.friends_refresh_timer = QTimer()
         self.friends_refresh_timer.timeout.connect(self.reload_friends_list)
-        self.friends_refresh_timer.start(10000)  # 10秒刷新一次
+        self.friends_refresh_timer.start(IntConst.FRIENDS_REFRESH_TIMER)  # 10秒刷新一次
 
         # 当前聊天的好友
         self.current_friend = None
@@ -1096,7 +1098,7 @@ class ChattingMainWindow(QMainWindow):
         self.reload_friends_list()
 
         # 设置窗口最小大小
-        self.window.setMinimumSize(800, 600)
+        self.window.setMinimumSize(IntConst.MAIN_WINDOW_MINIMUM_SIZE_W, IntConst.MAIN_WINDOW_MINIMUM_SIZE_H)
 
         # 窗口关闭时保存消息
         self.window.closeEvent = self.on_close
@@ -1121,7 +1123,7 @@ class ChattingMainWindow(QMainWindow):
         messages_file = self.get_messages_file()
         try:
             with open(messages_file, "w", encoding="utf-8") as f:
-                json.dump(self.local_messages, f, ensure_ascii=False, indent=2)
+                json.dump(self.local_messages, f, ensure_ascii=False, indent=IntConst.MESSAGES_FILE_INDENT)
         except Exception as e:
             print(f"保存本地消息失败: {e}")
 
@@ -1448,38 +1450,35 @@ def run_auth_flow():
 
     # 加载并应用字体设置
     font_family = get_setting("font.family", "")
-    font_size = get_setting("font.size", 12)
+    font_size = get_setting("font.size", IntConst.DEFAULT_FONT_SIZE)
     font_file_path = get_setting("font.file_path", "")
 
     # 先尝试加载用户自定义的字体文件
     if font_file_path and os.path.exists(font_file_path):
         custom_font_id = QFontDatabase.addApplicationFont(font_file_path)
-        if custom_font_id != extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
+        if custom_font_id != IntConst.CANNOT_LOAD_FONT:
             custom_font_families = QFontDatabase.applicationFontFamilies(custom_font_id)
             if custom_font_families:
-                print(f"成功加载自定义字体: {custom_font_families[0]}")
+                print(f"成功加载自定义字体: {custom_font_families[IntConst.CUSTOM_FONT_FAMILY_INDEX]}")
 
     # 加载默认字体作为后备
-    font_relative = (
-        r"./ChattingClientFile/font/SourceHan/Variable/TTF/SourceHanSansSC-VF.ttf"
-    )
+    font_relative = StringConst.DEFAULT_FONT_PATH
     font_path = os.path.abspath(font_relative)
     if not os.path.exists(font_path):
         print(f"字体文件不存在: {font_path}")
-        return
 
     font_id = QFontDatabase.addApplicationFont(font_path)
-    if font_id == extend_const.HTTPStatusExtend.UNABLE_CONNECT_TO_SERVER:
+    if font_id == IntConst.CANNOT_LOAD_FONT:
         print(f"字体加载失败: {font_path}")
     else:
         font_families = QFontDatabase.applicationFontFamilies(font_id)
         if font_families:
-            default_font_family = font_families[0]
+            default_font_family = font_families[IntConst.DEFAULT_FONT_FAMILY_INDEX]
             print(f"成功加载字体族: {default_font_family}")
             if font_family:
                 app.setFont(QFont(font_family, font_size))
             else:
-                app.setFont(QFont(default_font_family, 12))
+                app.setFont(QFont(default_font_family, IntConst.DEFAULT_FONT_SIZE))
         else:
             print("字体加载成功但未返回任何字体族")
 
